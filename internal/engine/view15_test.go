@@ -231,3 +231,39 @@ func TestViewCarriesTheStateTheScreensRead(t *testing.T) {
 		t.Error("the stage is still pending once seen")
 	}
 }
+
+// TestViewCampaignCountsTodaysBacking (#552): money put behind a ticket
+// shows in the city's campaign at once, as World.Campaigning reads it
+// for the TUI's race, and money on the other ticket the same day marks
+// it hedged.
+func TestViewCampaignCountsTodaysBacking(t *testing.T) {
+	t.Parallel()
+	s, w := freshSession(t)
+	home := w.Player.Location
+	w.Law.CampaignOpen = true
+	w.Player.CleanCash = 100_000
+	city := func() *engine.CityView {
+		for _, c := range s.View().Cities {
+			if c.ID == home {
+				return &c
+			}
+		}
+		t.Fatal("no home city in the view")
+		return nil
+	}
+	if c := city().Campaign; c != nil {
+		t.Fatalf("a campaign before any backing: %+v", c)
+	}
+	if err := s.Back(home, "reform", 20_000); err != nil {
+		t.Fatal(err)
+	}
+	if c := city().Campaign; c == nil || *c != (engine.CampaignView{Ticket: "reform", Cash: 20_000}) {
+		t.Errorf("today's backing: %+v", c)
+	}
+	if err := s.Back(home, "law_and_order", 5_000); err != nil {
+		t.Fatal(err)
+	}
+	if c := city().Campaign; c == nil || *c != (engine.CampaignView{Ticket: "reform", Cash: 25_000, Hedged: true}) {
+		t.Errorf("both tickets today: %+v", c)
+	}
+}

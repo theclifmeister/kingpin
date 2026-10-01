@@ -9,8 +9,8 @@
 const SCREENS = { dashboard: "street", market: "market", crew: "crew", map: "street", ledger: "ledger", rivals: "rivals" };
 
 // KINDS are the kinds whose screen is not the tab that shows them: the
-// fronts and the lanes on The empire, the ways out and the plan on
-// Ledger, the favour on the police's risk panel.
+// fronts and the lanes on The empire, the ways out, the plan, the DA
+// race and the favour on Ledger (#552: the law's card is there).
 const KINDS = {
   front_shut: "empire",
   float: "empire",
@@ -24,12 +24,14 @@ const KINDS = {
   straight: "ledger",
   vanish: "ledger",
   plan: "ledger",
-  favour: "street",
+  da_race: "ledger",
+  favour: "ledger",
 };
 
 // landing is where the alert is answered: `tab`, the `city` to turn
 // to, `open` what to open once there (a corner's dialog, a member's,
-// Properties, the police's risk or the investigation's confirm) on
+// Properties, the police's risk, the investigation's confirm or the
+// favour's) on
 // `id`, `select`, the page element to pick out, or "", and `focus`,
 // the field to put the cursor in (the till's, #553), or "".
 export function landing(a) {
@@ -44,7 +46,8 @@ export function landing(a) {
       out.select = "risk";
       break;
     case "favour":
-      out.open = "police";
+      // The favour is called in from the law's card (#552): its confirm.
+      Object.assign(out, { open: "favour", select: "law" });
       break;
     case "till":
     case "float":
@@ -82,6 +85,7 @@ export function landing(a) {
       out.select = "faction-" + a.faction;
       break;
     case "da_race":
+      // The DA RACE block (#552, the TUI's #534): the vote and the odds.
       out.select = "race";
       break;
     case "talking":

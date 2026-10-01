@@ -727,7 +727,9 @@ func (s *Session) View() View {
 		street[cid] = stock
 		v.You.Quality[cid], v.You.Room[cid] = quality, w.Free(cid)
 		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill}
-		if cp := c.Campaign; cp.Ticket != "" || cp.Cash > 0 {
+		// Today's backing included (World.Campaigning, #552), as the
+		// TUI's race reads it: money put behind a ticket shows at once.
+		if cp := w.Campaigning(cid); cp.Ticket != "" || cp.Cash > 0 {
 			cv.Campaign = &CampaignView{Ticket: cp.Ticket, Cash: cp.Cash, Hedged: cp.Hedged}
 		}
 		if level, day, ok := known.Response(cid); ok {

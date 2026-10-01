@@ -1514,3 +1514,29 @@ button.alert-item.notice {
 .lab-live {
   min-height: 1.4em;
 }
+/* The law (#552): the risk panel's LAW lines, the law cards' labelled
+   rows, the DA race and what is in your favour in the teal's ink. */
+.good-text {
+  color: var(--teal);
+}
+.law-lines p {
+  margin: 4px 0;
+}
+.law-lines .button {
+  margin-left: 6px;
+}
+.law-row {
+  margin: 6px 0;
+}
+.law-row small {
+  display: inline-block;
+  min-width: 72px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.race {
+  margin-top: 15px;
+}
+.race .stat-row {
+  margin: 10px 0;
+}

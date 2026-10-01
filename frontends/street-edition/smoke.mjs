@@ -216,7 +216,7 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     [{ kind: "da_race", city: "eastside", act: act("ledger", "city") }, "ledger", "", "", "race"],
     [{ kind: "retire", act: act("ledger") }, "ledger", "", "", ""],
     [{ kind: "retire", ready: true, act: act("dashboard") }, "ledger", "", "", ""],
-    [{ kind: "favour", act: act("ledger") }, "street", "police", "", ""],
+    [{ kind: "favour", act: act("ledger") }, "ledger", "favour", "", "law"],
     [{ kind: "reign", act: act("dashboard") }, "ledger", "", "", ""],
     [{ kind: "straight", act: act("dashboard") }, "ledger", "", "", ""],
     [{ kind: "vanish", act: act("dashboard") }, "ledger", "", "", ""],
@@ -362,10 +362,106 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   assert.ok(Math.abs(v.you.quality[here][id] - rec.To) < 1e-6, "view 17 carries the cut quality");
   clean(lab.cutDone(v, q, rec), "the cut's words");
 }
+{
+  // The law and its answers (#552): law.js's words on the live run and
+  // on made-up views, and the acts its dialogs send.
+  const law = await import(pathToFileURL(path.join(dist, "law.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  const q = (m, ...p) => session.call(m, ...p);
+  const clean = (s, what) => assert.doesNotMatch(String(s), /undefined|NaN|\[object/, what);
+  const v = session.refresh();
+  const lines = law.lawLines(v);
+  assert.match(lines[0].text, new RegExp(`^Chief ${v.law.chief} · `), "the chief's line");
+  assert.match(lines[1].text, new RegExp(`^DA ${v.law.da} · ${law.stanceWord(v.law.da_stance)}`), "the DA's line");
+  for (const l of lines) clean(l.text, "a LAW line");
+  // The race: the odds per ticket add up, a row a city, the costs.
+  const odds = law.raceOdds(q);
+  assert.equal(odds.length, 3, "three tickets' odds");
+  assert.ok(Math.abs(odds.reduce((n, [, o]) => n + o, 0) - 1) < 1e-9, "the odds add up");
+  const open = { ...v, law: { ...v.law, campaign_open: true, next_election: v.day + 12 } };
+  assert.equal(law.raceRows(v, q).length, v.law.campaign_open ? v.cities.length : 0, "no race rows while the tickets take nothing");
+  assert.equal(law.raceRows(open, q).length, v.cities.length, "a race row a city");
+  assert.equal(law.raceNote(open), `the vote on day ${v.day + 12}, in 12 days`);
+  const cmp = q("rules.law.campaign"),
+    backed = { ...open, cities: open.cities.map((c, i) => (i ? c : { ...c, campaign: { ticket: "reform", cash: cmp.Cash * 3 } })) };
+  assert.deepEqual([law.raceRows(backed, q)[0].ticket, law.raceRows(backed, q)[0].points], ["reform", "3.0 points"], "the backed row");
+  for (const [, t] of law.raceLines(backed, q, backed.cities[0].id)) clean(t, "a race line");
+  clean(law.raceCosts(q), "the race's costs");
+  // The fund: blank keeps tonight's upkeep back, the preview says what
+  // it buys, nothing given is refused, a backing on the other ticket is
+  // warned.
+  const c = v.cities[0],
+    rich = { ...v, you: { ...v.you, clean_cash: 50_000 } };
+  assert.ok(law.fundBlank(rich, q, c) <= rich.you.clean_cash - Math.min(rich.you.clean_cash, (await import(pathToFileURL(path.join(dist, "wash.js")))).upkeepTonight(q)), "blank keeps the upkeep back");
+  assert.ok(law.maxFund(rich, q, c) <= Math.trunc((100 - c.goodwill) * q("rules.law.tuning").GoodwillCash), "no more than goodwill 100");
+  for (const [, t] of law.fundLines(rich, q, c, "5000")) clean(t, "a fund line");
+  assert.ok(law.fundLines(rich, q, c, "5000").some(([k, t]) => k === "buys" && t.startsWith(`+${Math.round(q("rules.law.goodwill", 5000))} goodwill for $5,000`)), "the goodwill preview");
+  assert.deepEqual(law.fundPlan(rich, q, c, "5000", ""), { fund: 5000, back: 0 }, "goodwill alone");
+  assert.equal(law.fundPlan({ ...v, you: { ...v.you, clean_cash: 0 } }, q, c, "", "").err, "Nothing to give.", "nothing to give");
+  assert.deepEqual(law.fundPlan({ ...open, you: rich.you }, q, c, "0", "20000"), { fund: 0, back: 20000 }, "the campaign alone");
+  assert.ok(law.campaignLines(backed, q, backed.cities[0], 0, "law_and_order", "1000").some(([, t, k]) => k === "danger" && /buys nothing/.test(t)), "both tickets warned");
+  assert.equal(law.maxBack(backed, q, backed.cities[0], 0), Math.min(backed.you.clean_cash, law.fill(cmp) - cmp.Cash * 3), "the most the campaign takes");
+  // The favour: why not, and the confirm's words.
+  assert.match(law.favourRefusal({ ...v, law: { ...v.law, da_stance: "reform", favours: 0 } }, "raid"), /owes you nothing/);
+  assert.match(law.favourRefusal({ ...v, law: { ...v.law, da_stance: "reform", favours: 1 } }, ""), /nothing is coming tonight/);
+  assert.match(law.favourRefusal({ ...v, law: { ...v.law, da_stance: "law_and_order", favours: 1 } }, "raid"), /law-and-order DA/);
+  assert.equal(law.favourRefusal({ ...v, law: { ...v.law, da_stance: "reform", favours: 1 } }, "raid"), "", "a favour that can be called");
+  const raid = q("rules.heat.rungs", q("rules.heat.hottest")).find((r) => r.Level === "raid");
+  if (raid) assert.match(law.favourSaves(v, q, "raid"), new RegExp(`^What it saves: the raid would take ${Math.round(raid.StockLoss * 100)}% of the stock`), "what the favour saves");
+  for (const [t] of law.favourLines({ ...v, law: { ...v.law, favours: 1 } }, q)) clean(t, "a favour line");
+  assert.throws(() => q("call_favour"), "a favour with nothing owed is refused");
+  // The tip: the attention, the line, the page's odds and the peace.
+  const corner = v.cities.flatMap((x) => x.corners).find((k) => k.owner === "rival") || { id: "k", name: "The Docks", faction: v.factions[0].id };
+  const f = v.factions.find((x) => x.id === (corner.faction || "rival")) || v.factions[0],
+    tipped = (police, deals = []) => ({ ...v, factions: v.factions.map((x) => (x.id === f.id ? { ...x, police, deals } : x)) }),
+    tp = q("rules.rivals.tip_tuning");
+  const tip = law.tipLines(tipped(0), q, { ...corner, faction: f.id });
+  assert.match(tip[1][0], new RegExp(`goes 0 → ${Math.round(tp.Heat)}; at ${Math.round(tp.PoliceNotice)} they raid`), "the attention");
+  assert.ok(tip.some(([t]) => t.includes(`~${Math.round(q("rules.heat.tip_evidence") * 100)}% the DA's file`)), "the page's odds before it is sent");
+  assert.ok(law.tipLines(tipped(q("rules.rivals.factions").LeaderArrestHeat), q, { ...corner, faction: f.id }).some(([t]) => /the police take/.test(t)), "the end of them");
+  assert.ok(law.tipLines(tipped(0, ["truce"]), q, { ...corner, faction: f.id }).some(([t]) => /breaks the peace/.test(t)), "the peace");
+  for (const [t] of tip) clean(t, "a tip line");
+  clean(law.tipSaid(v, q, corner, f), "the tip's word");
+  // Lying low: who sells nothing, and a queued handoff named.
+  assert.equal(law.lieLowWords({ ...v, crew: [{ role: "lieutenant", city: "eastside" }] }), "no sales, your lieutenants' included");
+  assert.equal(law.lieLowWords({ ...v, crew: [] }), "no sales");
+  const contract = { id: 9, name: "Mr Lime", product: "weed", units: 40, delivered: 10, due: v.day + 3 };
+  assert.match(law.lieLowHandoffs({ ...v, contracts: [contract] }, [{ contract: 9, units: 12 }])[0], /^12 Weed to Mr Lime, 30 owed by day \d+\.$/i, "the handoff held");
+  assert.deepEqual(law.lieLowHandoffs(v, []), [], "nothing queued, no confirm");
+  // The bought law: each official's odds, a route's deal, the payoffs
+  // and the cop.
+  for (const stance of ["law_and_order", "reform", "moderate"]) {
+    const sv = { ...v, law: { ...v.law, da_stance: stance } };
+    for (const t of law.TARGETS) {
+      clean(law.officialWord(sv, q, t) + law.bribeOdds(sv, q, t, law.bribePrice(q, t)).text, `${t} under a ${stance} DA`);
+    }
+  }
+  assert.match(law.bribeOdds(v, q, "chief", 1).text, /^Under the price/, "an envelope under the price");
+  for (const [t] of law.bribeTerms(v, q)) clean(t, "the bribe's terms");
+  for (const r of v.routes) {
+    assert.ok(law.dealPrice(q, r.id) > 0, `${r.id}'s deal has a price`);
+    for (const [t] of law.checkpointLines({ ...v, routes: v.routes }, q, { ...r, risk_known: true, risk: 0.05 })) clean(t, `${r.id}'s deal`);
+  }
+  const bought = { ...v, law: { ...v.law, chief_bought: v.day + 5, da_bought: v.day + 9 }, routes: v.routes.map((r, i) => (i ? r : { ...r, checkpoint_until: v.day + 30 })) };
+  assert.deepEqual(law.payoffRows(bought, q).map((p) => p.until), [v.day + 5, v.day + 9, v.day + 30], "the live deals in order");
+  assert.deepEqual(law.payoffRows(v, q).filter((p) => !p.route), [], "nobody bought");
+  assert.ok(engineInfo.copPrice > 0 && engineInfo.copAccuracy > 0, "the cop's terms from the TOML");
+  assert.equal(law.copAccuracy(engineInfo, engineInfo.copPrice / 2), engineInfo.copAccuracy / 2, "less money, less often");
+  for (const [t] of law.copLines(v, engineInfo, "")) clean(t, "a cop line");
+  // The acts the dialogs send reach the engine, or are refused in its
+  // words.
+  if (!v.law.campaign_open) assert.throws(() => q("back", c.id, "reform", 1000), "no backing while the tickets take nothing");
+  if (!v.you.clean_cash) assert.throws(() => q("fund", c.id, 1000), "no fund with no clean cash");
+  if (law.cold(v)) assert.throws(() => q("bribe", "chief", 60000), /law-and-order/, "the chief takes nothing under a law-and-order DA");
+  if (v.you.dirty_cash >= 1000) {
+    q("pay_cop", 1000);
+    assert.throws(() => q("pay_cop", 1000), "one cop a day");
+  }
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, and save round-trip.`,
 );
 process.exit(0);

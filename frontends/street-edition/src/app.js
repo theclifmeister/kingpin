@@ -7,6 +7,7 @@ import * as crew from "./crew.js?v=__BUILD_REVISION__";
 import { engineInfo } from "./engine-info.js?v=__BUILD_REVISION__";
 import * as wash from "./wash.js?v=__BUILD_REVISION__";
 import * as lab from "./lab.js?v=__BUILD_REVISION__";
+import * as law from "./law.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -133,7 +134,9 @@ function act(m, p = [], label = "Done", options = {}) {
     if (label) notify(label);
     if (m === "end_day" && !v.over) morning();
     if (v.over) ending();
-    return result;
+    // A command that answers nothing answers true (#552), so a caller
+    // can tell it from a refusal, which answers null.
+    return result ?? true;
   } catch (e) {
     notify(e.message, true);
     return null;
@@ -253,7 +256,7 @@ function renderRisk() {
       .map(alertButton)
       .join(
         "",
-      )}<p>Pressure ${Math.round(c.pressure)} · Goodwill ${Math.round(c.goodwill)}</p><p class="${v.you.dirty_cash > v.law.exposure_line ? "danger-text" : ""}">Dirty cash exposure: ${money(v.you.dirty_cash)} / ${money(v.law.exposure_line)}</p>${tonightHTML()}<details id="police-risk"><summary>Understand the police risk</summary>${policeLines(
+      )}${lawPanelHTML()}<p class="${v.you.dirty_cash > v.law.exposure_line ? "danger-text" : ""}">Dirty cash exposure: ${money(v.you.dirty_cash)} / ${money(v.law.exposure_line)}</p>${tonightHTML()}<details id="police-risk"><summary>Understand the police risk</summary>${policeLines(
       v,
       c.id,
     )
@@ -272,7 +275,7 @@ function renderBusiness() {
   if (v.over) h += btn("Read your ending", "ending", "", "primary full");
   for (const a of v.alerts) h += alertButton(a);
   if (v.you.lie_low)
-    h += `<div class="todo">${icon("sun")}<div><span>A quiet night</span><small>Street sales are suspended.</small></div></div>`;
+    h += `<div class="todo">${icon("sun")}<div><span>A quiet night</span><small>${esc(law.lieLowSaid(v))}</small></div></div>`;
   h += orders
     .slice(0, 4)
     .map(
@@ -397,7 +400,7 @@ function renderEmpire() {
 // them (wash.js): the till and its control, the wash idle under it, a
 // route waiting on a lot, the fronts the night is expected to shut; a
 // front's status and why; an offer's terms, its lock and its shut.
-const tone = (t) => ({ warn: "warn-text", danger: "danger-text", subtle: "subtle-text" })[t] || "";
+const tone = (t) => ({ warn: "warn-text", danger: "danger-text", subtle: "subtle-text", good: "good-text", gold: "warn-text" })[t] || "";
 function washPanelHTML(p) {
   const t = wash.till(query),
     lines = wash.washLines(v, query, p);
@@ -459,7 +462,7 @@ function renderLedger() {
     canVanish = v.you.upgrades.includes("identity"),
     canCrown = v.ambitions.some((a) => a.ending === "kingpin" && a.done),
     terms = endingTerms(canStraight);
-  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${wash.reserveBlank(v, query) || ""}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${wash.cashOutBlank(v, query) || ""}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper" id="race"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${plural(off.RetireDays, "day")} quiet. You have ${plural(v.you.quiet_days, "quiet day")}.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>${esc(terms.kingpin)}</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>${esc(terms.vanished)}</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>${esc(terms.businessman)}</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
+  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${wash.reserveBlank(v, query) || ""}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${wash.cashOutBlank(v, query) || ""}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div>${lawSectionHTML()}${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${plural(off.RetireDays, "day")} quiet. You have ${plural(v.you.quiet_days, "quiet day")}.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>${esc(terms.kingpin)}</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>${esc(terms.vanished)}</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>${esc(terms.businessman)}</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
 }
 function reportHTML(r) {
   if (!r.sections)
@@ -550,7 +553,7 @@ function routes() {
     `<div class="eyebrow">ACROSS THE WATER</div><h2>Transport & supply</h2>${v.routes
       .map(
         (r) =>
-          `<div class="report-section"><div class="row"><h3>${esc(r.name)}</h3><span class="tag">${esc(r.mode)}</span></div><p>${esc(r.from)} → ${esc(r.to)} · ${r.risk_known ? "Risk " + Math.round(r.risk * 100) + "%" : "Risk unknown"}</p>${routeIdleHTML(r)}<select id="route-${r.id}">${["off", "slow", "normal", "fast"].map((x) => `<option ${x === r.dial ? "selected" : ""}>${x}</option>`).join("")}</select>${btn("Set pace", "route", r.id, "small")}<div class="card-actions"><select id="product-${r.id}">${city()
+          `<div class="report-section"><div class="row"><h3>${esc(r.name)}</h3><span class="tag">${esc(r.mode)}</span></div><p>${esc(r.from)} → ${esc(r.to)} · ${r.risk_known ? "Risk " + Math.round(r.risk * 100) + "%" : "Risk unknown"}</p>${routeIdleHTML(r)}${checkpointHTML(r)}<select id="route-${r.id}">${["off", "slow", "normal", "fast"].map((x) => `<option ${x === r.dial ? "selected" : ""}>${x}</option>`).join("")}</select>${btn("Set pace", "route", r.id, "small")}<div class="card-actions"><select id="product-${r.id}">${city()
             .products.map(
               (p) => `<option value="${p.id}">${esc(p.name)}</option>`,
             )
@@ -608,7 +611,7 @@ function exportFile() {
   notify("Save exported");
 }
 async function action(a, id) {
-  if (alignedAction(a, id) || labAction(a, id)) return;
+  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id)) return;
   try {
     switch (a) {
       case "close":
@@ -648,11 +651,16 @@ async function action(a, id) {
           order: { key: "strike", text: "Enforcers sent to " + id },
         });
         break;
-      case "tip":
-        act("tip", [id], "Tip queued", {
-          order: { key: "tip", text: "Police tip: " + id },
+      case "tip": {
+        // The tip confirm (#552, ui/books.go tipConfirm): the police's
+        // attention, when they act, the trust and the page's odds.
+        const c = v.cities.flatMap((x) => x.corners).find((x) => x.id === id),
+          f = v.factions.find((x) => x.id === (c.faction || "rival"));
+        confirm("Tip the police?", law.tipLines(v, query, c).map(([t, k]) => [t, tone(k)]), () => {
+          if (act("tip", [id], null, { order: { key: "tip", text: "Police tip: " + c.name } }) !== null) notify(law.tipSaid(v, query, c, f));
         });
         break;
+      }
       case "undercut":
         act(
           "undercut",
@@ -869,11 +877,6 @@ async function action(a, id) {
         else act("set_till", [r.send], r.say, { close: false });
         break;
       }
-      case "fund":
-        act("fund", [id, integer("#fund-amount")], "Funding queued", {
-          order: { key: "fund-" + id, text: "Community funding" },
-        });
-        break;
       case "retire":
       case "crown":
       case "go_straight":
@@ -958,7 +961,7 @@ async function action(a, id) {
           "deliver",
           [Number(id), integer("#delivery-units")],
           "Delivery queued",
-          { order: { key: "delivery-" + id, text: "Private buyer delivery" } },
+          { order: { key: "delivery-" + id, text: "Private buyer delivery", contract: Number(id), units: integer("#delivery-units") } },
         );
         break;
       case "routes":
@@ -1013,12 +1016,7 @@ $("#sheet").addEventListener("click", (e) => {
   }
 });
 $("#end-day").onclick = () => (v.card ? dilemma() : previewTonight());
-$("#lie-low").onclick = () =>
-  act(
-    "set_lie_low",
-    [!v.you.lie_low],
-    v.you.lie_low ? "Back to business" : "Lying low tonight",
-  );
+$("#lie-low").onclick = () => action("lie-low");
 $("#save-menu").onclick = () => v && saveMenu();
 $("#help").onclick = () =>
   modal(
@@ -1363,7 +1361,7 @@ function openAlert(a) {
     if (a.member && $("#post-member")) $("#post-member").value = a.member;
   } else if (l.open === "member" && v.crew.some((m) => m.id === l.id)) action("crew-detail", l.id);
   else if (l.open === "properties") properties();
-  else if (l.open === "police") $("#police-risk").open = true;
+  else if (l.open === "favour") action("favour");
   else if (l.open === "investigate" && v.crew.length && !v.over) action("investigate");
   const picked = l.select && document.getElementById(l.select);
   if (picked) {
@@ -1626,4 +1624,195 @@ function labAction(a, id) {
     }
   }
   return false;
+}
+
+// The law and its answers (#552), worded by law.js as the TUI's LAW
+// panel, DA RACE block, fund dialog, favour call-in, tip confirm,
+// lie-low words, bribe dialog, checkpoint confirm, PAYOFFS block and
+// cop dialog word them.
+const rowsHTML = (rows) => rows.map(([label, text, t]) => `<p class="law-row">${label ? `<small>${esc(label.toUpperCase())}</small> ` : ""}<span class="${tone(t)}">${esc(text)}</span></p>`).join("");
+const parasHTML = (lines) => lines.map(([text, t]) => `<p class="${tone(t)}">${esc(text)}</p>`).join("");
+// lawPanelHTML is the risk panel's LAW lines: the chief, the DA, the
+// pressure here and elsewhere; the favour's call while the chief owes.
+function lawPanelHTML() {
+  return `<div class="law-lines">${law
+    .lawLines(v)
+    .map((l) => `<p class="${tone(l.tone)}">${esc(l.text)}${l.owes ? ` ${btn("Call in the favour", "favour", "", "small", !!v.over)}` : ""}</p>`)
+    .join("")}</div>`;
+}
+// lawSectionHTML is the Ledger's law: the chief and the DA, the DA
+// race while the tickets take money, the fund, and the bought law.
+function lawSectionHTML() {
+  const l = v.law,
+    lines = law.lawLines(v);
+  return `<h3 class="section-gap">The law</h3><div class="cards" id="law"><article class="card"><div class="eyebrow">THE CHIEF AND THE DA</div><h3>Chief ${esc(l.chief)}</h3><p>${esc(lines[0].text.replace(/^Chief [^·]*· /, ""))}${lines[0].owes ? `<br>${btn("Call in the favour", "favour", "", "small", !!v.over)}` : ""}</p><h3>DA ${esc(l.da)}</h3><p>${esc(lines[1].text.replace(/^DA [^·]*· /, ""))}</p><p class="subtle-text">${esc(lines.slice(2).map((x) => x.text).join(". "))}</p></article><article class="card" id="fund"><div class="eyebrow">GIVE SOMETHING BACK</div><h3>Fund a city</h3><p>Goodwill takes pressure off a city a little every day${law.raceShown(v) ? "; while the DA race runs, the same clean cash can back a ticket" : ""}. Clean cash only.</p>${upkeepHTML()}${btn("Fund a city", "fund-open", v.you.city, "small", !v.you.clean_cash || !!v.over)}</article>${payoffsHTML()}</div>${raceHTML()}`;
+}
+// raceHTML is the DA RACE block (ui/race.go, #534): the vote's day and
+// the odds per ticket, who sits, a row a city with what your money
+// holds there, and what it costs; the da_race alert lands on it.
+function raceHTML() {
+  if (!law.raceShown(v)) return "";
+  const head = law.raceLines(v, query, v.you.city).filter(([k]) => k !== "yours");
+  return `<section class="paper race" id="race"><div class="eyebrow">DA RACE · ${esc(law.raceNote(v).toUpperCase())}</div><div class="stat-row">${law
+    .raceOdds(query)
+    .map(([t, o]) => `<span><b>${Math.round(o * 100)}%</b>${esc(t)}</span>`)
+    .join("")}</div>${rowsHTML(head)}<div class="table-wrap"><table class="data-table"><thead><tr><th>CITY</th><th>TICKET</th><th>BACKED</th><th>POINTS</th><th></th></tr></thead><tbody>${law
+    .raceRows(v, query)
+    .map((r) => `<tr id="race-${esc(r.city)}"><td>${esc(r.name)}</td><td class="${r.hedged ? "danger-text" : ""}">${esc(r.ticket)}</td><td>${r.backed ? money(r.backed) : "-"}</td><td>${esc(r.points)}</td><td>${btn("Back a ticket", "fund-open", r.city, "small", !v.you.clean_cash || !!v.over)}</td></tr>`)
+    .join("")}</tbody></table></div><p class="subtle-text">${esc(law.raceCosts(query))}</p></section>`;
+}
+// payoffsHTML is the PAYOFFS card: the live deals and when each runs
+// out, what a fixer hears, and the envelopes: a bribe, a cop's word.
+function payoffsHTML() {
+  const rows = law.payoffRows(v, query),
+    note = law.payoffNote(v);
+  return `<article class="card" id="payoffs"><div class="eyebrow">PAYOFFS</div><h3>The bought law</h3>${rows.length ? rows.map((p) => `<p><b>${esc(p.who)}</b> · ${esc(p.what)}<br><small class="subtle-text">until day ${p.until}, ${plural(Math.max(0, p.until - v.day), "day")} left</small></p>`).join("") : '<p class="subtle-text">Nobody on the payroll. A route\'s checkpoint is bought on its card in Transport.</p>'}${note ? `<p class="subtle-text">${esc(note)}</p>` : ""}${law.cold(v) && rows.length ? '<p class="danger-text">A law-and-order DA sits: it ends within the week.</p>' : ""}<div class="card-actions">${btn("Bribe", "bribe-open", "", "small", !v.you.dirty_cash || !!v.over)}${btn("Pay a cop", "cop-open", "", "small subtle", !v.you.dirty_cash || !!v.over)}</div></article>`;
+}
+// checkpointHTML is a route's deal on its Transport card: held until a
+// day, or for sale at its price.
+function checkpointHTML(r) {
+  const word = law.dealWord(query, r.id);
+  return `<p class="subtle-text">${r.checkpoint_until ? `The ${esc(word)} is yours until day ${r.checkpoint_until}. ` : ""}${btn(`Buy the ${esc(word)} · ${money(law.dealPrice(query, r.id))}`, "checkpoint", r.id, "small subtle", !v.you.dirty_cash || !!v.over)}</p>`;
+}
+// fundDialog is the fund dialog (ui/law.go viewFund, viewCampaign): the
+// city, the goodwill amount and what it buys, and while the tickets
+// take money the ticket and the amount behind it. Nothing is given
+// until Give.
+function fundDialog(cityId) {
+  const race = law.raceShown(v);
+  modal(
+    `<div class="eyebrow">GIVE SOMETHING BACK</div><h2>Fund a city</h2><p>${money(v.you.clean_cash)} clean in hand. Nothing is given until you press Give.</p><label>City<select id="fund-city" data-input="fund">${v.cities.map((c) => `<option value="${c.id}" ${c.id === cityId ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label><label>Goodwill<input id="fund-amount" data-input="fund" type="number" min="0" step="1000" aria-label="Clean cash for goodwill" placeholder="blank = up to 100, upkeep kept back"></label><div id="fund-preview"></div>${
+      race
+        ? `<h3>The campaign</h3><label>Ticket<select id="fund-ticket" data-input="fund">${law.TICKETS.map((t) => `<option value="${t}">${esc(law.stanceWord(t))}</option>`).join("")}</select></label><label>Behind the ticket<input id="back-amount" data-input="fund" type="number" min="0" step="10000" aria-label="Clean cash behind the ticket" placeholder="blank = nothing"></label><div id="back-preview"></div>`
+        : ""
+    }<p class="danger-text" id="fund-error"></p><div class="card-actions">${btn("Give", "fund-give", "", "primary", !!v.over)}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  const camp = law.campaign(v, cityId);
+  if (race && camp.ticket && !camp.hedged) $("#fund-ticket").value = camp.ticket;
+  fundPreview();
+  (race && cityId !== v.you.city ? $("#back-amount") : $("#fund-amount"))?.focus();
+}
+function fundPreview() {
+  const c = v.cities.find((x) => x.id === $("#fund-city").value),
+    f = law.readAmount($("#fund-amount").value, law.fundBlank(v, query, c));
+  $("#fund-preview").innerHTML = rowsHTML(law.fundLines(v, query, c, $("#fund-amount").value));
+  $("#fund-amount").max = law.maxFund(v, query, c);
+  if ($("#back-preview")) {
+    const given = f.err ? 0 : f.amount;
+    $("#back-preview").innerHTML = rowsHTML(law.campaignLines(v, query, c, given, $("#fund-ticket").value, $("#back-amount").value));
+    $("#back-amount").max = law.maxBack(v, query, c, given);
+  }
+  $("#fund-error").textContent = "";
+}
+// bribeDialog is the bribe dialog (ui/bribes.go viewBribe): the chief
+// or the DA with what is known of them and their price, the amount
+// (blank is the price) and what the envelope is likely to do.
+function bribeDialog() {
+  modal(
+    `<div class="eyebrow">AN ENVELOPE</div><h2>Bribe</h2><p>${money(v.you.dirty_cash)} dirty in hand.</p>${law.TARGETS.map((t, i) => `<label class="choice"><span><input type="radio" name="bribe-target" value="${t}" data-input="bribe" ${i === 0 ? "checked" : ""}> <b>${esc(law.officialName(v, t))}</b> · ${esc(law.officialWord(v, query, t))} · ${money(law.bribePrice(query, t))}</span></label>`).join("")}<label>Amount<input id="bribe-amount" data-input="bribe" type="number" min="1" step="1000" aria-label="Dirty cash in the envelope" placeholder="blank = the price"></label><p id="bribe-odds"></p>${parasHTML(law.bribeTerms(v, query))}<div class="card-actions">${btn("Pay", "bribe-pay", "", "primary", !!v.over)}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  bribePreview();
+}
+function bribeTarget() {
+  return $('input[name="bribe-target"]:checked')?.value || "chief";
+}
+function bribePreview() {
+  const t = bribeTarget(),
+    r = law.readAmount($("#bribe-amount").value, law.bribePrice(query, t)),
+    o = r.err ? { text: r.err, tone: "danger" } : law.bribeOdds(v, query, t, r.amount);
+  $("#bribe-odds").className = tone(o.tone);
+  $("#bribe-odds").textContent = o.text;
+}
+// copDialog is the cop dialog (ui/intel.go viewPayCop): the amount,
+// blank the price, and how straight the word is at it.
+function copDialog() {
+  modal(
+    `<div class="eyebrow">A WORD ON THE POLICE</div><h2>Pay a cop</h2><p>${money(v.you.dirty_cash)} dirty in hand.</p><label>Amount<input id="cop-amount" data-input="cop" type="number" min="1" step="500" aria-label="Dirty cash for a cop" placeholder="blank = the price"></label><div id="cop-preview"></div><div class="card-actions">${btn("Pay", "cop-pay", "", "primary", !!v.over)}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  copPreview();
+}
+function copPreview() {
+  $("#cop-preview").innerHTML = parasHTML(law.copLines(v, engineInfo, $("#cop-amount").value));
+}
+document.addEventListener("input", (e) => {
+  const kind = e.target.dataset?.input;
+  if (kind === "fund") fundPreview();
+  else if (kind === "bribe") bribePreview();
+  else if (kind === "cop") copPreview();
+});
+function lawAction(a, id) {
+  try {
+    switch (a) {
+      case "fund-open":
+        if (!v.you.clean_cash) throw Error("Can't fund a city: goodwill is bought with clean cash, and you have none.");
+        fundDialog(id || v.you.city);
+        break;
+      case "fund-give": {
+        const c = v.cities.find((x) => x.id === $("#fund-city").value),
+          ticket = $("#fund-ticket")?.value || "",
+          plan = law.fundPlan(v, query, c, $("#fund-amount").value, $("#back-amount")?.value);
+        if (plan.err) {
+          $("#fund-error").textContent = plan.err;
+          break;
+        }
+        if (plan.fund > 0 && act("fund", [c.id, plan.fund], null, { close: false, order: { key: "fund-" + c.id, text: `Goodwill for ${c.name}` } }) === null) break;
+        if (plan.back > 0 && act("back", [c.id, ticket, plan.back], null, { close: false }) === null) break;
+        $("#sheet").close();
+        notify(law.fundSaid(v, query, c, plan.fund, plan.back, ticket));
+        break;
+      }
+      case "favour": {
+        const why = law.favourRefusal(v, query("rules.heat.due"));
+        if (why) throw Error(why);
+        confirm("Call in the favour?", law.favourLines(v, query).map(([t, k]) => [t, tone(k)]), () => {
+          if (act("call_favour", [], null) !== null) notify(law.favourSaid(v));
+        });
+        break;
+      }
+      case "bribe-open":
+        if (!v.you.dirty_cash) throw Error("Can't bribe anybody: an envelope is dirty cash, and you have none.");
+        bribeDialog();
+        break;
+      case "bribe-pay": {
+        const t = bribeTarget(),
+          r = law.readAmount($("#bribe-amount").value, law.bribePrice(query, t));
+        if (r.err || r.amount <= 0) throw Error(r.err || "Enter a whole number of dollars.");
+        if (act("bribe", [t, r.amount], null) !== null) notify(law.bribeSaid(v, t, r.amount));
+        break;
+      }
+      case "cop-open":
+        if (!v.you.dirty_cash) throw Error("Can't pay a cop: a cop takes dirty cash, and you have none.");
+        copDialog();
+        break;
+      case "cop-pay": {
+        const r = law.readAmount($("#cop-amount").value, law.copBlank(v, engineInfo));
+        if (r.err || r.amount <= 0) throw Error(r.err || "Enter a whole number of dollars.");
+        if (act("pay_cop", [r.amount], null) !== null) notify(law.copSaid(engineInfo, r.amount));
+        break;
+      }
+      case "checkpoint": {
+        const r = v.routes.find((x) => x.id === id),
+          price = law.dealPrice(query, id),
+          word = law.dealWord(query, id);
+        confirm(`Buy the ${word}?`, law.checkpointLines(v, query, r).map(([t, k]) => [t, tone(k)]), () => {
+          if (act("buy_checkpoint", [id], null) !== null) notify(law.checkpointSaid(v, query, v.routes.find((x) => x.id === id), price));
+        });
+        break;
+      }
+      case "lie-low": {
+        // Lying low with a handoff queued holds it tonight (#503): ask.
+        const queued = orders.filter((o) => o.contract && o.units),
+          lines = v.you.lie_low ? [] : law.lieLowHandoffs(v, queued),
+          go = () => act("set_lie_low", [!v.you.lie_low], null) !== null && notify(law.lieLowSaid(v));
+        if (lines.length) confirm("Lie low? A handoff is queued", lines.map((l, i) => (i === lines.length - 1 ? [l, "subtle-text"] : l)), go);
+        else go();
+        break;
+      }
+      default:
+        return false;
+    }
+  } catch (e) {
+    notify(e.message, true);
+  }
+  return true;
 }
