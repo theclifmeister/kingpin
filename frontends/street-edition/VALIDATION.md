@@ -1,3 +1,14 @@
+# The cook max keeps the wages (#569, protocol 28 / view 17)
+
+The builder accepts protocol 28 and view 17. Protocol 28 serves two crew rules: `rules.crew.spare` (the dirty cash less tonight's wages at the dial, `crew.Sim.Spare`) and `rules.crew.cook_max` (the cook's most: the batch, the room with what is cooking counted, and what `spare` buys at the unit's precursors, `crew.Sim.CookMax`). A Cook who cooked the dialog's blank on day 0 went broke on day 2 with the lot still cooking: the max spent all the dirty cash and kept nothing for the chemist's wage. `src/lab.js`'s `cookMax` is now the engine's rule, the TUI's too, so the two cannot drift, and `cutMax` holds the till to `spare`. Nothing else this edition read moved.
+
+The engine also counts a lot still cooking as stock (`World.TotalStock`), as it counts the road, so the broke check and the `broke` alert no longer end a run with a paid-for lot on its way: the owner's ruling, a sim change with no pinned number moved.
+
+Checks:
+
+- **`go test ./internal/engine`**: `TestCookMaxKeepsTheWages` plays seed 41's Cook through the blank to the lot landing (made to fail by leaving `Crew.Cooks` out of `TotalStock`). **`go test ./internal/ui`**: `TestCookBlankKeepsTheWages`.
+- **`smoke.mjs`**: `spare` is the dirty cash less `rules.crew.wages`, and the cook max at the unit's cost fits in it.
+
 # The law and its answers (#552, still protocol 27 / view 17)
 
 The builder still accepts protocol 27 and view 17. One view field changed its count, not its shape: a city's `campaign` now includes today's backing (`World.Campaigning`, as the TUI's race reads it), where it held only the nights before, so money put behind a ticket showed nowhere until the morning (`TestViewCampaignCountsTodaysBacking`). No client read the field before this edition. The words are ported from the TUI into `src/law.js`, which touches no DOM, and `src/app.js` draws them:

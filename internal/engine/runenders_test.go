@@ -9,8 +9,8 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// bare empties every stash, the road and the routine, so nothing is in
-// stock or on its way.
+// bare empties every stash, the road, the lab and the routine, so
+// nothing is in stock or on its way.
 func bare(w *game.World) {
 	for _, cid := range w.CityOrder {
 		for _, id := range w.Products {
@@ -18,6 +18,51 @@ func bare(w *game.World) {
 		}
 	}
 	w.Shipments, w.Supply, w.Standing = nil, nil, nil
+	w.Crew.Cooks = nil
+}
+
+// TestCookMaxKeepsTheWages (#569): the Cook who cooks the dialog's blank
+// on day 0 is not broke on day 2. The blank (rules.crew.cook_max, which
+// the TUI and Street Edition both read) leaves tonight's wages in the
+// till, and the lot on its way is stock to the broke check and its
+// alert, as a shipment is, so the run lives to see it land.
+func TestCookMaxKeepsTheWages(t *testing.T) {
+	t.Parallel()
+	s, err := engine.New(content.MustLoad())
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := s.NewRun(41, game.Start{Character: "cook"})
+	r := s.Rules()
+	city := w.Player.Location
+	cost := r.Crew.CookCostIn(w, city, r.Market.CookCost("meth"))
+	wages := r.Crew.Wages(w, w.Crew.Pay)
+	if spare := r.Crew.Spare(w); spare != w.Player.DirtyCash-wages {
+		t.Fatalf("spare %d with %d dirty and %d in wages", spare, w.Player.DirtyCash, wages)
+	}
+	most := r.Crew.CookMax(w, city, "meth", r.Market.CookCost("meth"))
+	if most <= 0 || most*cost > w.Player.DirtyCash-wages {
+		t.Fatalf("the cook max %d at %d a unit, %d dirty, %d in wages", most, cost, w.Player.DirtyCash, wages)
+	}
+	k, err := s.Cook(city, "meth", most)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.TotalStock() != most {
+		t.Fatalf("a lot of %d cooking, total stock %d", most, w.TotalStock())
+	}
+	for w.Day < k.Ready && w.Over == nil {
+		if got := ofKind(s, engine.AlertBroke); len(got) != 0 {
+			t.Fatalf("day %d: a broke alert with a lot on its way: %+v", w.Day, got)
+		}
+		s.EndDay()
+	}
+	if w.Over != nil {
+		t.Fatalf("the run ended on day %d with the lot on its way: %+v", w.Day, w.Over)
+	}
+	if w.Stock(city, "meth") != most {
+		t.Fatalf("day %d: the lot did not land, %d meth in %s", w.Day, w.Stock(city, "meth"), city)
+	}
 }
 
 // TestBrokeTonightAlert (#518): with nothing in stock or on the road and
