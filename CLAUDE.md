@@ -9,7 +9,7 @@ Every change follows the same path. Do not skip steps.
 1. **Start with an issue containing the plan.** Before writing code, open a GitHub issue that states the goal, scope and acceptance criteria. Phase work references the design in issue #1 ("Part of #1"). If an issue already exists for the work, use it.
 2. **One branch per issue, holding all of its changes.** Never commit to `main`; branch from an up-to-date `main`. `main` is protected: changes land only through a pull request with green CI.
 3. **Link the PR to its issue** with `Closes #N`. If a PR deliberately deviates from the issue's spec, say so in the PR.
-4. **Docs travel with the code.** A PR that changes a subsystem updates its `docs/<topic>.md` (the names, the numbers, the guard tests, the rulings and why) and its row in the map. **CLAUDE.md stays under 20 KB** (#175): detail belongs in `docs/`.
+4. **Docs travel with the code.** A PR that changes a subsystem updates its `docs/<topic>.md` (the names, the numbers, the guard tests, the rulings and why) and its row in the map. A PR that adds player information to the TUI adds a row to the web's parity table (`frontends/street-edition/VALIDATION.md`) or files the web follow-up (`docs/web.md`, #558). **CLAUDE.md stays under 20 KB** (#175): detail belongs in `docs/`.
 
 CI runs on pull requests only (`docs/harness.md`): gofmt, `go mod tidy` drift, vet, staticcheck, govulncheck, build, `go test` (`-race` on all but `internal/harness` and `internal/ui`) and a balance smoke run. Make the same checks pass locally before pushing.
 

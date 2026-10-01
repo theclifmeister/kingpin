@@ -10,7 +10,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
-const [site, kindsJSON, bossPath, alertKindsJSON, exitsPath] = process.argv.slice(2);
+const [site, kindsJSON, bossPath, alertKindsJSON, exitsPath, parityPath] = process.argv.slice(2);
 const kinds = JSON.parse(kindsJSON);
 const alertKinds = JSON.parse(alertKindsJSON);
 const require = createRequire(import.meta.url);
@@ -213,6 +213,14 @@ function play(seed, days) {
   const crew = [{ id: 1, name: "Vee", role: "runner" }, { id: 2, name: "Lu", role: "lieutenant" }];
   check({ kind: "crew_line", cross: "under", member: 1, line: 20 }, ["Vee is under 20 loyalty", "Pay them off, or investigate"], [], { ...v, crew });
   check({ kind: "crew_line", cross: "under", member: 2, line: 30 }, ["Lu is under 30 loyalty", "takes the city with them. Fire them"], [], { ...v, crew });
+}
+
+// The alerts' parity (#558): the fixture's alerts in the web's words,
+// on the fixture's morning, for the Go test to hold clause by clause
+// to the TUI's (alertParity).
+{
+  const { view, alerts } = JSON.parse(fs.readFileSync(parityPath, "utf8"));
+  out.alertWords = alerts.map((a) => alertText(view, a));
 }
 
 // Hiring (#332): the pool's first id, by the page's own call, lands on
