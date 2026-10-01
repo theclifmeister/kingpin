@@ -41,7 +41,7 @@ var webLeavesOut = map[engine.AlertKind][]string{
 	engine.AlertVanish:   {"vanish on the new identity with $700 offshore (walk away) or play on"},
 
 	// The remedy: what answers the alert, which the web lands on but
-	// does not say. Open: port the words, or rule the landing enough.
+	// does not say. Ruled 2026-10-01: ported (#573).
 	engine.AlertPages:      {"and fire whoever it names", "they are gone", "nobody to fire", "every tip to the police can file a page"},
 	engine.AlertWarMuscle:  {"hire muscle"},
 	engine.AlertSkim:       {"watch the loyalty"},
@@ -54,7 +54,7 @@ var webLeavesOut = map[engine.AlertKind][]string{
 	engine.AlertUnposted:   {"put them on the wharf", "have them guard the wharf", "send the enforcers at a rival's or buy a block", "or post them in eastside"},
 	engine.AlertNoCorner:   {"or buy a block", "or sell in eastside"}, // the web says "another city"
 
-	// Facts the web drops or words apart: gaps to port.
+	// Facts the web drops or words apart: gaps to port (#573).
 	engine.AlertFloat:    {"the wash and the road wait"},
 	engine.AlertTill:     {"the wash takes the rest"},
 	engine.AlertGate:     {"the laundromat opens at $900 peak", "$500 to go"},

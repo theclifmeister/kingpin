@@ -1,6 +1,6 @@
 # Parity with the TUI (standing, #558)
 
-What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed.
+What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
 Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
@@ -17,30 +17,30 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Alerts | Each alert lands where it is answered (`ui/alerts.go` `openAlert`) | done (#549; the law's, #552) |
 | Alerts | Their answers: investigate, call in the favour, back a ticket, raise the till | done (#551, #552, #553) |
 | Alerts | `file`, `crew_line`, `investigation`, `reign`, `contract_due`, `scouts` words | done (#549) |
-| Alerts | Every other clause of `ui/alerts.go` | partial: the clauses `webLeavesOut` names (`cmd/kingpin-web/parity_test.go`, see below); open, unowned |
+| Alerts | Every other clause of `ui/alerts.go` | partial: the clauses `webLeavesOut` names (`cmd/kingpin-web/parity_test.go`, see below); open #573 |
 | Turn flow | Fast-forward, holds, the most severe stop (`ui/fast.go`) | open #555 |
 | Turn flow | End-day preview: danger styling, `unknown`, delivered, the wash (`ui/daypreview.go`) | done (#549) |
 | Turn flow | The morning's danger alarm (`ui/model.go` `morning`) | done (#549, a red toast) |
 | Dashboard | Warrant marked on the risk panel; other cities' heat; "one file, every city" | done (#549) |
-| Dashboard | The crew-trouble summary | partial (#551: on the crew tab; not on the street view) |
-| Dashboard | The patrol sales cap (`sell_cap`, in the view since #550) | open, unowned |
-| Dashboard | "Strike tonight" and the war's "nobody goes in" | open #554 (war); the strike line unowned |
+| Dashboard | The crew-trouble summary | partial (#551: on the crew tab); the street view open #574 |
+| Dashboard | The patrol sales cap (`sell_cap`, in the view since #550) | open #574 |
+| Dashboard | "Strike tonight" and the war's "nobody goes in" | open #554 (war); the strike line open #574 |
 | Law | The chief and the DA named; the DA RACE block (`ui/race.go`) | done (#552) |
 | Law | Fund with city, goodwill preview, upkeep kept back; back a ticket | done (#552) |
 | Law | Call in the favour, with what it saves (`ui/law.go`) | done (#552) |
 | Law | Tip confirm: page odds, police attention (`ui/books.go`) | done (#552) |
 | Law | Bribes, checkpoints, payoffs, pay a cop (`ui/bribes.go`, `ui/intel.go`) | done (#552) |
 | Law | Lie-low words and the queued-handoff warning | done (#552) |
-| Law | Sale heat estimate, pressure in numbers, the glossary | open, unowned (sloppy heat done, #551) |
+| Law | Sale heat estimate, pressure in numbers, the glossary | open #575 (sloppy heat done, #551) |
 | Crew | Investigate with cost, odds, confirm (`ui/crew.go`) | done (#551) |
 | Crew | SNITCH mark; fire confirm with cost, walk and war lines | done (#551) |
 | Crew | Loyalty lines on the member; betrayal words (`ui/lieutenant.go`) | done (#551) |
 | Crew | Posts by role; jail, laid up, bail; pay dial, pay-off, N of M | done (#551) |
-| Crew | The CREW summary (`ui/crew.go`) | partial (#551; the capacity row open, unowned) |
-| Crew | Over-cap words on unassigning a lieutenant | open, unowned |
+| Crew | The CREW summary (`ui/crew.go`) | partial (#551); the capacity row open #576 |
+| Crew | Over-cap words on unassigning a lieutenant | open #576 |
 | Crew | Lieutenant temper countdown | done (#551) |
-| Crew | Lieutenant "keeps" levels, pool countdown, kin | open, unowned (keeps may fall to #556) |
-| Crew | Captain picker: fixed budgets, who captains each city (`ui/captain.go`) | open, unowned |
+| Crew | Lieutenant "keeps" levels, pool countdown, kin | open #576 |
+| Crew | Captain picker: fixed budgets, who captains each city (`ui/captain.go`) | open #576 |
 | Lab | Chemist's hand, cook and cut dialogs (`ui/quality.go`) | done (#557) |
 | Money | The till: shown, set, wash-idle and road-waits (`ui/till.go`) | done (#553) |
 | Money | Reserve, cash-out and fund keep tonight's upkeep back | done (#553; the fund #552) |
@@ -49,7 +49,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Logistics | Route idle reasons (`ui/routes.go`) | done (#553) |
 | Routine | Standing orders and supply contracts; the cart from the view; sweep | open #556 |
 | Routine | Owned assets and houses, connect credit, route and market panes | partial (debt #549, checkpoint #552, idle #553); open #556 |
-| Money | Wash audit odds, throughput, pile rot, tax | open, unowned |
+| Money | Wash audit odds, throughput, pile rot, tax | open #577 |
 | Money | Presets and upgrades in readable names | open #556 |
 | Endings | The score (÷ 1 + bodies) on every way out and the ending screen | open #554 |
 | Endings | Ending cards' terms and each exit's confirm (`ui/exit.go`) | partial (#548); street-window words and reign income open #554 |
@@ -59,10 +59,11 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Rivals | War declare and call-off with the confirm (`ui/rivals.go`) | open #554 |
 | Rivals | Propose with standard terms and odds; live deal terms (`deal_terms`) | open #554 |
 | Rivals | Faction detail: muscle, stance, mood, allies, stats | open #554 |
-| Progression | Stage interstitial and "new" mark (`v.stage`, since #550) | open, unowned |
-| Progression | Journal, profile history, rank, slots | open, unowned (may be ruled out: one browser save, no profile) |
+| Progression | Stage interstitial and "new" mark (`v.stage`, since #550) | open #578 |
+| Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
-**The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (open: port the words or rule the landing enough): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). `retire` counts off the alert where the TUI counts off the world.
+**The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
 # The cook max keeps the wages (#569, protocol 28 / view 17)
 
 The builder accepts protocol 28 and view 17. Protocol 28 serves two crew rules: `rules.crew.spare` (the dirty cash less tonight's wages at the dial, `crew.Sim.Spare`) and `rules.crew.cook_max` (the cook's most: the batch, the room with what is cooking counted, and what `spare` buys at the unit's precursors, `crew.Sim.CookMax`). A Cook who cooked the dialog's blank on day 0 went broke on day 2 with the lot still cooking: the max spent all the dirty cash and kept nothing for the chemist's wage. `src/lab.js`'s `cookMax` is now the engine's rule, the TUI's too, so the two cannot drift, and `cutMax` holds the till to `spare`. Nothing else this edition read moved.
