@@ -4253,6 +4253,15 @@
         "peak_cash": {
           "type": "integer"
         },
+        "quality": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "type": "object"
+        },
         "quiet_days": {
           "type": "integer"
         },
@@ -4261,6 +4270,12 @@
         },
         "respect": {
           "type": "number"
+        },
+        "room": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
         },
         "score": {
           "type": "integer"
@@ -4320,7 +4335,9 @@
         "quiet_days",
         "till",
         "score",
-        "bodies"
+        "bodies",
+        "quality",
+        "room"
       ],
       "type": "object"
     },
@@ -16848,5 +16865,5 @@
   },
   "protocol": 27,
   "title": "kingpind",
-  "view_version": 16
+  "view_version": 17
 }
