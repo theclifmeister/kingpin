@@ -25,7 +25,9 @@ import (
 // ending; and on it, three more seeds and 120 nights of the harness's
 // boss every cue that came names something on the map, animates and
 // draws, and every day's map draws. A cue none of them gave is made up
-// on the boss's last morning and drawn too, so all 17 are.
+// on the boss's last morning and drawn too, so all 17 are. Every alert
+// kind is worded as the TUI words it, clause by clause, bar the
+// clauses webLeavesOut names (#558, alertParity).
 func TestWebClient(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the site")
@@ -54,7 +56,9 @@ func TestWebClient(t *testing.T) {
 	bossNights(t, boss)
 	exits := filepath.Join(t.TempDir(), "exits.json")
 	exitSaves(t, exits)
-	run := exec.Command(node, filepath.Join("testdata", "play.mjs"), site, string(kinds), boss, string(alertKinds), exits)
+	parityPath := filepath.Join(t.TempDir(), "alerts.json")
+	parity := alertFixture(t, parityPath)
+	run := exec.Command(node, filepath.Join("testdata", "play.mjs"), site, string(kinds), boss, string(alertKinds), exits, parityPath)
 	run.Env = append(os.Environ(), "KINGPIN_HOME="+t.TempDir())
 	raw, err := run.Output()
 	if err != nil {
@@ -85,6 +89,7 @@ func TestWebClient(t *testing.T) {
 		AlertsExtra  []string    `json:"alertsExtra"`
 		AlertsWorded int         `json:"alertsWorded"`
 		AlertsLinked int         `json:"alertsLinked"`
+		AlertWords   []string    `json:"alertWords"`
 		Exits        map[string]struct {
 			Open bool   `json:"open"`
 			Over string `json:"over"`
@@ -112,6 +117,7 @@ func TestWebClient(t *testing.T) {
 	if len(got.AlertsMiss)+len(got.AlertsExtra) > 0 {
 		t.Errorf("the alerts' words: none for %v, words for no kind %v", got.AlertsMiss, got.AlertsExtra)
 	}
+	alertParity(t, parity, got.AlertWords)
 	if got.AlertsWorded == 0 || got.AlertsLinked == 0 {
 		t.Errorf("%d alerts worded and %d linked to a panel over every run: the page draws none", got.AlertsWorded, got.AlertsLinked)
 	}
