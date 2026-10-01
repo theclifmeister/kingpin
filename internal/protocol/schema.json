@@ -2685,26 +2685,61 @@
         "day": {
           "type": "integer"
         },
+        "epilogue": {
+          "type": "string"
+        },
+        "reached": {
+          "type": "integer"
+        },
+        "story": {
+          "items": {
+            "$ref": "#/$defs/engine.StoryView"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
         "who": {
           "type": "string"
+        },
+        "won": {
+          "type": "boolean"
         }
       },
       "required": [
         "day",
-        "cause"
+        "cause",
+        "title",
+        "won",
+        "epilogue",
+        "story",
+        "reached"
       ],
       "type": "object"
     },
     "engine.FactionView": {
       "properties": {
+        "absorbed": {
+          "type": "integer"
+        },
+        "absorbed_by": {
+          "type": "string"
+        },
         "alive": {
           "type": "boolean"
         },
         "arrived": {
           "type": "integer"
         },
+        "betrayed": {
+          "type": "integer"
+        },
         "books": {
           "$ref": "#/$defs/engine.BooksView"
+        },
+        "city": {
+          "type": "string"
         },
         "corners": {
           "type": "integer"
@@ -2720,6 +2755,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "fragmented": {
+          "type": "integer"
         },
         "id": {
           "type": "string"
@@ -2748,6 +2786,18 @@
         "police": {
           "type": "number"
         },
+        "split_lines": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "stance": {
+          "type": "string"
+        },
         "tribute_nights": {
           "type": "integer"
         },
@@ -2768,7 +2818,29 @@
         "war",
         "personality",
         "deal_terms",
-        "police"
+        "police",
+        "city",
+        "stance",
+        "split_lines"
+      ],
+      "type": "object"
+    },
+    "engine.FallenView": {
+      "properties": {
+        "day": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "role",
+        "day"
       ],
       "type": "object"
     },
@@ -3782,7 +3854,16 @@
         "corners_won": {
           "type": "integer"
         },
+        "crew_poached": {
+          "type": "integer"
+        },
         "cuts": {
+          "type": "integer"
+        },
+        "deals": {
+          "type": "integer"
+        },
+        "deals_refused": {
           "type": "integer"
         },
         "defections": {
@@ -3795,6 +3876,12 @@
           "type": "integer"
         },
         "fees": {
+          "type": "integer"
+        },
+        "homage": {
+          "type": "integer"
+        },
+        "informants": {
           "type": "integer"
         },
         "invested": {
@@ -3830,6 +3917,9 @@
         "taxed": {
           "type": "integer"
         },
+        "tribute": {
+          "type": "integer"
+        },
         "units_sold": {
           "type": "integer"
         },
@@ -3863,7 +3953,28 @@
         "betrayed_by",
         "defections",
         "walked",
-        "peak_heat"
+        "peak_heat",
+        "deals",
+        "deals_refused",
+        "tribute",
+        "homage",
+        "informants",
+        "crew_poached"
+      ],
+      "type": "object"
+    },
+    "engine.StoryView": {
+      "properties": {
+        "day": {
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "day",
+        "text"
       ],
       "type": "object"
     },
@@ -4071,6 +4182,12 @@
           },
           "type": "array"
         },
+        "fallen": {
+          "items": {
+            "$ref": "#/$defs/engine.FallenView"
+          },
+          "type": "array"
+        },
         "fronts": {
           "items": {
             "$ref": "#/$defs/engine.FrontView"
@@ -4193,7 +4310,8 @@
         "orders",
         "standing",
         "supply",
-        "stats"
+        "stats",
+        "fallen"
       ],
       "type": "object"
     },
@@ -4263,6 +4381,12 @@
           "type": "object"
         },
         "quiet_days": {
+          "type": "integer"
+        },
+        "reign": {
+          "type": "integer"
+        },
+        "reign_slip": {
           "type": "integer"
         },
         "reserved_today": {
@@ -16904,5 +17028,5 @@
   },
   "protocol": 28,
   "title": "kingpind",
-  "view_version": 17
+  "view_version": 18
 }

@@ -13,7 +13,7 @@ ROOT = HERE.parents[1]
 OUT = HERE / 'dist'
 GO = os.environ.get('KINGPIN_GO', 'go')
 # The frontend must be reviewed before accepting a changed contract.
-EXPECTED_PROTOCOL, EXPECTED_VIEW = 28, 17
+EXPECTED_PROTOCOL, EXPECTED_VIEW = 28, 18
 
 def commit():
     """The commit the build stamps: git's, or where there is no .git (a
@@ -55,10 +55,13 @@ def build():
     rivals = tomllib.loads((ROOT / 'internal/content/rivals.toml').read_text())
     heat = tomllib.loads((ROOT / 'internal/content/heat.toml').read_text())
     intel = tomllib.loads((ROOT / 'internal/content/intel.toml').read_text())
+    laundering = tomllib.loads((ROOT / 'internal/content/laundering.toml').read_text())
     # The crew's confirms (#551) read three numbers no rule serves: a
     # blank investigation's loyalty, the enforcers a war needs, and the
     # skill under which a runner is sloppy. The cop dialog (#552) reads
-    # a cop's price and how straight their word is at it.
+    # a cop's price and how straight their word is at it. The walk away
+    # and the war (#554) read the street's window going straight is
+    # measured over, the crown's share and the war order's force.
     info = {'commit': revision, 'protocol': EXPECTED_PROTOCOL, 'view': EXPECTED_VIEW,
             'frontRoles': {f['id']: f['role'] for f in upgrades['front']},
             'traits': {k: v['says'] for k, v in crew['trait'].items()},
@@ -66,7 +69,10 @@ def build():
             'takenOutMuscle': rivals['endings']['taken_out_muscle'],
             'sloppySkill': heat['heat']['sloppy_skill'],
             'copPrice': intel['intel']['cop_price'],
-            'copAccuracy': intel['intel']['cop_accuracy']}
+            'copAccuracy': intel['intel']['cop_accuracy'],
+            'streetWindow': laundering['businessman']['street_window'],
+            'kingpinShare': rivals['endings']['kingpin_share'],
+            'warForce': rivals['war']['dial']}
     (OUT / 'engine-info.js').write_text('export const engineInfo = ' + json.dumps(info) + ';\n')
     subprocess.run([GO, 'build', '-buildvcs=false', '-o', str(OUT / 'assets/kingpin.wasm'), './cmd/kingpin-wasm'],
                    cwd=ROOT, env={**os.environ, 'GOOS': 'js', 'GOARCH': 'wasm'}, check=True)

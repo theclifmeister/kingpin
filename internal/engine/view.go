@@ -29,8 +29,11 @@ import (
 // 16 every alert's danger and notice, the reign alert's slip and the
 // scouts alert's faction (#549). 17 (#557) the cut and the cook
 // dialogs' two numbers: the quality of each lot you hold and the free
-// room in each city's stash.
-const ViewVersion = 17
+// room in each city's stash. 18 (#554) what Street Edition's endings
+// and rivals' table read: the reign's day and slip, each faction's
+// city, stance, fall, betrayal and split lines, the lifetime table
+// counters, the fallen, and the ending's title, epilogue and story.
+const ViewVersion = 18
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -74,6 +77,23 @@ type View struct {
 	Stats    StatsView            `json:"stats"`              // the run summary's counters (#49)
 	Stage    *StageView           `json:"stage,omitempty"`    // a stage entered and not yet seen (#149): see_stage marks it
 	Proposal *ProposalView        `json:"proposal,omitempty"` // the deal put to a faction today; it answers in the morning
+
+	// View 18 (#554).
+	Fallen []FallenView `json:"fallen"` // the crew shot dead on your corners (#46), oldest first
+}
+
+// FallenView is a member of the crew who fell on a corner (#46).
+type FallenView struct {
+	Name string `json:"name"`
+	Role string `json:"role"`
+	Day  int    `json:"day"`
+}
+
+// StoryView is one headline of the run summary's story (#465,
+// Session.Story).
+type StoryView struct {
+	Day  int    `json:"day"`
+	Text string `json:"text"`
 }
 
 // AssetView is an asset you own (#48): what it is, where, what it cost
@@ -149,6 +169,14 @@ type StatsView struct {
 	Defections  int     `json:"defections"`
 	Walked      int     `json:"walked"` // lieutenants who walked with their city
 	PeakHeat    float64 `json:"peak_heat"`
+
+	// View 18 (#554): the table's lifetime and the rest of the betrayals.
+	Deals        int `json:"deals"`         // deals struck, either way
+	DealsRefused int `json:"deals_refused"` // proposals a faction turned down
+	Tribute      int `json:"tribute"`       // dirty cash paid in tribute
+	Homage       int `json:"homage"`        // dirty cash the factions paid you in homage (#43)
+	Informants   int `json:"informants"`    // crew who turned on you
+	CrewPoached  int `json:"crew_poached"`  // crew a faction poached (#43, #465)
 }
 
 // StageView is the stage entered and not yet seen (#149): the tier,
@@ -194,6 +222,13 @@ type EndingView struct {
 	Day   int    `json:"day"`
 	Cause string `json:"cause"` // one of content.Causes
 	Who   string `json:"who,omitempty"`
+
+	// View 18 (#554): the summary's words, as the TUI's summary reads them.
+	Title    string      `json:"title"`    // the ending's title (endings.toml)
+	Won      bool        `json:"won"`      // an ending you chose, not one that befell you
+	Epilogue string      `json:"epilogue"` // Session.Epilogue
+	Story    []StoryView `json:"story"`    // Session.Story, in the order it happened
+	Reached  int         `json:"reached"`  // the day the tier you ended at was entered (World.ReachedOn); 0 the first
 }
 
 // YouView is the player.
@@ -234,6 +269,10 @@ type YouView struct {
 	// View 17 (#557).
 	Quality map[string]map[string]float64 `json:"quality"` // city id -> product id -> the quality of the lot held there (#47, World.Quality), street and houses; a product with no units is absent
 	Room    map[string]int                `json:"room"`    // city id -> the units the stash there has free (World.Free): what a cut adds and a cook lands into
+
+	// View 18 (#554).
+	Reign     int `json:"reign,omitempty"`      // the day the reign began (#227); 0 no reign
+	ReignSlip int `json:"reign_slip,omitempty"` // the mornings the reign has been under the share (#399)
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -511,6 +550,15 @@ type FactionView struct {
 	Police        float64    `json:"police"`                   // the police's attention on it, 0..100: your tips (#70)
 	LastRaid      int        `json:"last_raid,omitempty"`      // the day the police last took a corner off it on your tip
 	TributeNights int        `json:"tribute_nights,omitempty"` // the nights of your takings a tribute is priced off (#532); 0 prices off the potential
+
+	// View 18 (#554).
+	City       string     `json:"city"`                  // the city it contests (World.CityOf)
+	Stance     string     `json:"stance"`                // where it stands with you (World.Stance): quiet, war, truce, tribute, split, homage, not yet, fragmented, absorbed, scattered
+	Absorbed   int        `json:"absorbed,omitempty"`    // the day it was absorbed or scattered (#43)
+	AbsorbedBy string     `json:"absorbed_by,omitempty"` // ... by this faction; "" scattered
+	Fragmented int        `json:"fragmented,omitempty"`  // the day it lost its leader
+	Betrayed   int        `json:"betrayed,omitempty"`    // the day you last broke a deal with it (rules.rivals.distrusted reads the clock)
+	SplitLines [][]string `json:"split_lines"`           // the three lines a split could run (World.SplitLinesWith): what you hold, plus the free corners on your side, plus every free corner
 }
 
 // BooksView is a read of a faction's books (#70, #45).
@@ -675,7 +723,14 @@ func (s *Session) View() View {
 	known := game.Known(w)
 	v.Seed, v.Day = w.Seed, w.Day
 	if w.Over != nil {
-		v.Over = &EndingView{Day: w.Over.Day, Cause: w.Over.Cause, Who: w.Over.Who}
+		v.Over = &EndingView{Day: w.Over.Day, Cause: w.Over.Cause, Who: w.Over.Who,
+			Title: s.cfg.Endings.Title(w.Over.Cause), Won: s.cfg.Endings.Won(w.Over.Cause), Epilogue: s.Epilogue(), Reached: w.ReachedOn(w.Tier())}
+		if w.Over.Cause == content.CauseKingpin && w.Reign > 0 {
+			v.Over.Reached = w.Reign // the reign's first morning (#227), as the summary's line reads it
+		}
+		for _, h := range s.Story() {
+			v.Over.Story = append(v.Over.Story, StoryView{Day: h.Day, Text: h.Text})
+		}
 	}
 	v.You = YouView{
 		City:      w.Player.Location,
@@ -707,6 +762,9 @@ func (s *Session) View() View {
 		PagesDue:     s.PagesDue(),
 		PagesPending: s.PagesPending(),
 		Reserved:     w.ReservedToday(),
+
+		Reign:     w.Reign,
+		ReignSlip: w.ReignSlip,
 	}
 	for _, id := range sortedKeys(w.Upgrades) {
 		if w.Upgrades[id] {
@@ -907,6 +965,12 @@ func (s *Session) View() View {
 				fv.TributeNights = n
 			}
 		}
+		if c := w.CityOf(r); c != nil {
+			fv.City = c.ID
+		}
+		fv.Stance = w.Stance(r, s.set.Rivals.Tuning().WarThreshold)
+		fv.Absorbed, fv.AbsorbedBy, fv.Fragmented, fv.Betrayed = r.Absorbed, r.AbsorbedBy, r.Fragmented, r.Betrayed
+		fv.SplitLines = w.SplitLinesWith(id)
 		v.Factions = append(v.Factions, fv)
 	}
 	v.Law = LawView{Chief: w.Law.Chief.Name, ChiefTemper: known.Chief(), DA: w.Law.DA.Name, DAStance: w.Law.DA.Stance, NextElection: s.set.Law.NextElection(w),
@@ -925,6 +989,9 @@ func (s *Session) View() View {
 		v.Proposal = &ProposalView{Faction: p.With(), Kind: p.Kind, Terms: termsView(p.Terms)}
 	}
 	v.Stats = statsView(w)
+	for _, f := range w.Crew.Fallen {
+		v.Fallen = append(v.Fallen, FallenView{Name: f.Name, Role: f.Role, Day: f.Day})
+	}
 	v.Stage = s.stageView()
 	if c := w.Dilemmas.Pending; c != nil {
 		cv := &CardView{ID: c.ID, Title: c.Title, Text: c.Text}
@@ -1123,6 +1190,8 @@ func statsView(w *game.World) StatsView {
 		CornersWon: st.CornersWon, CornersLost: st.CornersLost, Stings: st.Stings, Raids: st.Raids,
 		Betrayals: st.Betrayals, BetrayedBy: st.BetrayedBy, Defections: st.Defections, Walked: st.Walked,
 		PeakHeat: w.Heat.Peak,
+		Deals:    st.Deals, DealsRefused: st.DealsRefused, Tribute: st.Tribute, Homage: st.Homage,
+		Informants: st.Informants, CrewPoached: st.CrewPoached,
 	}
 }
 

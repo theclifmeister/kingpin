@@ -18,7 +18,7 @@ import (
 // never a World method a front end calls itself.
 var worldReads = []string{
 	"AssetLive", "AssetLost", "AtPeaceWith", "AtWarWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
-	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "CapacityAway", "Cash", "Checkpoint", "City", "CityName",
+	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "CapacityAway", "Checkpoint", "City", "CityName",
 	"CityOf", "Cold", "Contested", "ContestedBy", "Contract", "ContractsDue", "ContractsIn", "Corner",
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",
 	"Describe", "DrivenRoute", "ExportOrder", "ExportsOut", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Float", "Free",

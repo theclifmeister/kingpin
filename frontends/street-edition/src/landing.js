@@ -84,6 +84,17 @@ export function landing(a) {
     case "scouts":
       out.select = "faction-" + a.faction;
       break;
+    case "retire":
+    case "vanish":
+    case "straight":
+    case "reign":
+      // The way out on the Ledger's walk away (#554): its terms, what is
+      // short and what it scores.
+      out.select = "exit-" + { retire: "retire", vanish: "vanish", straight: "go_straight", reign: "crown" }[a.kind];
+      break;
+    case "plan":
+      out.select = "plan-line";
+      break;
     case "da_race":
       // The DA RACE block (#552, the TUI's #534): the vote and the odds.
       out.select = "race";

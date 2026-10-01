@@ -1540,3 +1540,8 @@ button.alert-item.notice {
 .race .stat-row {
   margin: 10px 0;
 }
+
+/* The crown's card on Rivals (#554): space before the factions. */
+.crown-card {
+  margin-bottom: 18px;
+}

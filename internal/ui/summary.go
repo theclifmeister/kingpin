@@ -2,9 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"sort"
 	"strings"
-	"text/template"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -160,146 +158,25 @@ func (m *Model) factLines(facts [][2]string) []string {
 	return out
 }
 
-// epilogue is the ending's epilogue from endings.toml, filled from the
-// world as it stood; empty for a cause the file lacks, and the cause
-// for one whose template will not render (the file is validated at
-// load, so that is a field a template names that the data lacks).
-func (m *Model) epilogue() string {
-	w := m.w
-	e := w.Over
-	home := w.Home()
-	fronts := plural(len(w.Fronts), "business")
-	if len(w.Fronts) != 1 {
-		fronts = fmt.Sprintf("%d businesses", len(w.Fronts))
-	}
-	d := content.Epilogue{
-		Days:     e.Day,
-		City:     home.Name,
-		Here:     w.Here().Name,
-		Offshore: money(w.Offshore),
-		Left:     money(w.Cash()),
-		Bodies:   w.Stats.Bodies,
-		Fronts:   fronts,
-		Corners:  w.Held(),
-		Name:     e.Who,
-		Leader:   e.Who,
-		DA:       w.Law.DA.Name,
-		Chief:    w.Law.Chief.Name,
-		Pages:    max(1, w.Heat.Evidence),
-		Years:    plural(m.cfg.Endings.Kingpin.Reign(home.Heat, home.Pressure), "year"),
-		Reign:    plural(max(1, w.ReignDay()), "day"),
-		Hot:      home.Heat > home.Pressure,
-	}
-	if e.Who == "" {
-		d.Name, d.Leader = "Somebody", w.Rival().Leader
-		if d.Leader == "" {
-			d.Leader = "The rival"
-		}
-	}
-	text, err := m.cfg.Endings.Render(e.Cause, d)
-	if err != nil {
-		return strings.ToUpper(e.Cause)
-	}
-	return text
-}
+// epilogue is the ending's epilogue (engine.Session.Epilogue, #554:
+// the summary and Street Edition's ending screen tell it the one way).
+func (m *Model) epilogue() string { return m.sess.Epilogue() }
 
-// storyLines is the summary's timeline: [summary] lines headlines of
-// the run by the weight of their source, shown in the order they
-// happened as `day 42  text`. A text is told once, at its latest (#465:
-// five identical patrol lines were the story), and the run is cut into
-// as many spans as there are lines, each span giving its heaviest
-// headline, the latest among equals, so a 563-day run is not told from
-// its last month alone; a span with nothing to tell leaves its line to
-// the heaviest of the rest.
+// storyLines is the summary's timeline (engine.Session.Story, #554):
+// the headlines that weighed most, in the order they happened, each as
+// `day 42  text`. Every day is padded to the widest and two spaces
+// more, so a long line hangs under its text (#463) at one cell down the
+// story: `day %-3d ` left day 100 one space and no run of two, and its
+// wrap hung two cells in (#507).
 func (m *Model) storyLines() []string {
-	cfg := m.cfg.Endings.Summary
-	type entry struct {
-		h      game.Headline
-		weight float64
-		i      int
-	}
-	quiet := m.quietLines()
-	last := map[string]int{} // a text's latest entry in the journal
-	for i, h := range m.w.Journal {
-		last[h.Text] = i
-	}
-	var cands []entry
-	for i, h := range m.w.Journal {
-		if quiet[h.Text] || last[h.Text] != i {
-			continue
-		}
-		if wt := cfg.Weight[h.Source]; wt > 0 {
-			cands = append(cands, entry{h, wt, i})
-		}
-	}
-	heavier := func(a, b entry) bool {
-		if a.weight != b.weight {
-			return a.weight > b.weight
-		}
-		return a.i > b.i
-	}
-	sort.SliceStable(cands, func(a, b int) bool { return heavier(cands[a], cands[b]) })
-	days := 1
-	if m.w.Over != nil {
-		days = max(days, m.w.Over.Day)
-	}
-	for _, c := range cands {
-		days = max(days, c.h.Day)
-	}
-	var picked []entry
-	taken := map[int]bool{}
-	if n := cfg.Lines; n > 0 {
-		for span := 0; span < n; span++ {
-			for _, c := range cands {
-				if s := min(n-1, (c.h.Day-1)*n/days); s == span && !taken[c.i] {
-					picked, taken[c.i] = append(picked, c), true
-					break
-				}
-			}
-		}
-		for _, c := range cands {
-			if len(picked) >= n {
-				break
-			}
-			if !taken[c.i] {
-				picked, taken[c.i] = append(picked, c), true
-			}
-		}
-	}
-	sort.Slice(picked, func(a, b int) bool { return picked[a].i < picked[b].i })
-	// Every day is padded to the widest and two spaces more, so a long
-	// line hangs under its text (#463) at one cell down the story: `day
-	// %-3d ` left day 100 one space and no run of two, and its wrap hung
-	// two cells in (#507).
+	picked := m.sess.Story()
 	dayW := 6
-	for _, p := range picked {
-		dayW = max(dayW, len(fmt.Sprintf("day %d", p.h.Day)))
+	for _, h := range picked {
+		dayW = max(dayW, len(fmt.Sprintf("day %d", h.Day)))
 	}
 	var out []string
-	for _, p := range picked {
-		out = append(out, theme.Subtle.Render(fmt.Sprintf("day %-*d", dayW-4, p.h.Day))+"  "+p.h.Text)
-	}
-	return out
-}
-
-// quietLines are the texts the summary's quiet templates render to in
-// every city of the run (#424): "Nothing to report from Eastside
-// corners" is a heat line, and the story never tells it.
-func (m *Model) quietLines() map[string]bool {
-	out := map[string]bool{}
-	for _, key := range m.cfg.Endings.Summary.Quiet {
-		for _, src := range m.cfg.Headlines.Templates[key] {
-			tpl, err := template.New(key).Parse(src)
-			if err != nil {
-				continue
-			}
-			for _, c := range m.w.Cities {
-				var b strings.Builder
-				if tpl.Execute(&b, map[string]string{"City": c.Name}) == nil {
-					out[b.String()] = true
-				}
-			}
-		}
+	for _, h := range picked {
+		out = append(out, theme.Subtle.Render(fmt.Sprintf("day %-*d", dayW-4, h.Day))+"  "+h.Text)
 	}
 	return out
 }

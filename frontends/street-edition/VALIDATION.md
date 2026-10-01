@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569 and #554. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -24,7 +24,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Dashboard | Warrant marked on the risk panel; other cities' heat; "one file, every city" | done (#549) |
 | Dashboard | The crew-trouble summary | partial (#551: on the crew tab); the street view open #574 |
 | Dashboard | The patrol sales cap (`sell_cap`, in the view since #550) | open #574 |
-| Dashboard | "Strike tonight" and the war's "nobody goes in" | open #554 (war); the strike line open #574 |
+| Dashboard | "Strike tonight" and the war's "nobody goes in" | partial (#554: the war's "nobody goes in" on the faction at war's card); the strike line open #574 |
 | Law | The chief and the DA named; the DA RACE block (`ui/race.go`) | done (#552) |
 | Law | Fund with city, goodwill preview, upkeep kept back; back a ticket | done (#552) |
 | Law | Call in the favour, with what it saves (`ui/law.go`) | done (#552) |
@@ -51,18 +51,30 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Routine | Owned assets and houses, connect credit, route and market panes | partial (debt #549, checkpoint #552, idle #553); open #556 |
 | Money | Wash audit odds, throughput, pile rot, tax | open #577 |
 | Money | Presets and upgrades in readable names | open #556 |
-| Endings | The score (÷ 1 + bodies) on every way out and the ending screen | open #554 |
-| Endings | Ending cards' terms and each exit's confirm (`ui/exit.go`) | partial (#548); street-window words and reign income open #554 |
-| Endings | Walk-away pending lines | open #554 |
-| Endings | Ambition steps by unit, the PLAN line, the quiet reset | open #554 |
-| Rivals | Crown progress: `crownShort`, the last clock, why each faction is off the count | open #554 |
-| Rivals | War declare and call-off with the confirm (`ui/rivals.go`) | open #554 |
-| Rivals | Propose with standard terms and odds; live deal terms (`deal_terms`) | open #554 |
-| Rivals | Faction detail: muscle, stance, mood, allies, stats | open #554 |
+| Endings | The score (÷ 1 + bodies) on every way out and the ending screen | done (#554) |
+| Endings | Ending cards' terms and each exit's confirm (`ui/exit.go`) | done (#548; street-window words and reign income #554) |
+| Endings | Walk-away pending lines | done (#554) |
+| Endings | Ambition steps by unit, the PLAN line, the quiet reset | done (#554) |
+| Rivals | Crown progress: `crownShort`, the last clock, why each faction is off the count | done (#554) |
+| Rivals | War declare and call-off with the confirm (`ui/rivals.go`) | done (#554) |
+| Rivals | Propose with standard terms and odds; live deal terms (`deal_terms`) | done (#554) |
+| Rivals | Faction detail: muscle, stance, mood, allies, stats | done (#554) |
 | Progression | Stage interstitial and "new" mark (`v.stage`, since #550) | open #578 |
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# The endings, the crown and the rivals' table (#554, protocol 28 / view 18)
+
+The builder now accepts protocol 28 and view 18. View 18 exposes state the engine already kept, which the page needed and could not read: `you.reign` and `reign_slip`; each faction's `city`, `stance`, `absorbed`, `absorbed_by`, `fragmented`, `betrayed` and `split_lines`; `stats.deals`, `deals_refused`, `tribute`, `homage`, `informants` and `crew_poached`; `fallen`; and `over.title`, `won`, `epilogue`, `story` and `reached`. The epilogue and the story moved from `ui/summary.go` into `engine.Session.Epilogue` and `Session.Story`, so the TUI's summary and this ending screen tell a run the same way (`TestSummaryReadsTheRun` and the story tests still pass on the TUI; `TestViewCarriesTheTableAndTheEnding` pins the view). No sim changed, so no seed-pinned number moved. The words are ported into two pure modules, `src/endings.js` and `src/rivals.js`, and `engine-info.js` adds `streetWindow`, `kingpinShare` and `warForce` from the TOML.
+
+Checks:
+
+- `smoke.mjs` (Node, the built WASM, seed 41 to day 45): the four ways out with their terms, what is short and the same score row; each confirm scoring `Score $X:` off `you.score`; the pages due closing every way out with the TUI's words, and the pending lines; the crown's short, the reign's income and a faction off the count exactly when `rules.rivals.down` says it does not count; the slipping reign; the plans' step words by unit, the PLAN line with a sting resetting the quiet days, and a task force named; the summary's facts (the fallen, the bodies, the betrayals, a kingpin's reached day); for each live faction the three standard truce, tribute and split asks with odds in 0..1, the tribute basis, a proposal put and withdrawn, and, with an enforcer hired, war declared on it with the confirm naming the target and odds, then called off. The landing table now sends `retire`, `vanish`, `straight` and `reign` to their way out's card and `plan` to the PLAN line.
+- Chromium (Playwright headless, 1280×900 and 390×900) on two crafted saves (the `boss` policy, seed 4, 60 days; one with $900,000 offshore, two bodies and a truce, one the same run ended as kingpin with a fallen runner): the Rivals tab draws the crown's card (`4 held of 10 in Eastside, 6 needed, 2 crews still standing, 4 crews yet to arrive`, then each crew off the count with why), each faction's card with its deal's days left and mood; Declare war opens `War on Mother's crew?` naming The Strip, the odds (`?`, the muscle unknown) and the heat, warns of the truce it breaks, declares (`you.war` set), and Call off the war confirms and clears it; Propose lists the live truce, opens the tribute's three asks (`$660/day 5% of your street (thin) ~44%`…) with the street's basis, and sends the proposal with the odds in the toast. The Ledger's four ways out each show `SCORES the account over 1 + 2 bodies: $300,000`. The ending modal's large number is `$300,000`, the engine's `you.score`, with the epilogue, the story, the money, the people and the city. No page errors, no horizontal scroll at either width.
+- Fixed during the check: a negative figure read `$-550` (now `-$550`), and a crew not yet arrived read `run out of town` (now `not moved in yet`, with no mood line).
+
+Not covered: the TUI's ambitions panel's "ready to take" key line and the stage interstitial (#149) stay out, as the gap report listed them apart; the propose dialog keeps the TUI's three asks and no longer takes a free number.
 
 # The cook max keeps the wages (#569, protocol 28 / view 17)
 
