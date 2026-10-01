@@ -6,6 +6,7 @@ import { howTheyCome, roleLines, temperLine, temperOf } from "./lieutenants.js?v
 import * as crew from "./crew.js?v=__BUILD_REVISION__";
 import { engineInfo } from "./engine-info.js?v=__BUILD_REVISION__";
 import * as wash from "./wash.js?v=__BUILD_REVISION__";
+import * as lab from "./lab.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -318,11 +319,11 @@ function renderMarket() {
     .map((p) => {
       const supplier = con.find((x) => x.prices[p.id] != null),
         room = supplier ? session.maxBuy(supplier.id, p.id) : null;
-      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small></td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${stock[p.id] || 0}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, stock[p.id] || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !stock[p.id] || !!v.over)}</td></tr>`;
+      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small></td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${stock[p.id] || 0}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, stock[p.id] || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !stock[p.id] || !!v.over)}</td></tr>`;
     })
     .join(
       "",
-    )}</tbody></table></div><div class="row" style="margin-top:14px"><label class="subtle-text">Sales approach <select id="sale-dial" class="inline-select" data-change="sale-dial">${[["quiet", "Quiet · lower profile"], ["normal", "Normal · balanced"], ["aggressive", "Aggressive · more heat"]].map(([d, label]) => `<option value="${d}" ${d === saleDial ? "selected" : ""}>${label}</option>`).join("")}</select></label>${btn("Sell all held stock", "sell-all", "", "small", !!v.over)}</div>${orders.length ? `<h3 class="section-gap">Tonight’s orders</h3>${orders.map((o) => `<div class="order-item">${esc(o.text)}${o.product ? ` <button class="quiet-link" data-action="cancel-sale" data-id="${o.product}">Cancel</button>` : ""}</div>`).join("")}` : ""}<h3 class="section-gap">Private buyers</h3>${v.contracts.length ? `<div class="cards">${v.contracts.map((c) => `<article class="card" id="contract-${c.id}"><span class="tag">${esc(c.status)}</span><h3>${esc(c.name)}</h3><p>${esc(c.pitch)}</p><div class="stat-row"><span><b>${c.units}</b>units</span><span><b>${c.delivered}</b>delivered</span><span><b>${c.due}</b>due day</span></div>${c.status === "offered" ? btn("Accept contract", "contract", c.id, "small") : btn("Deliver stock", "deliver", c.id, "small")}</article>`).join("")}</div>` : '<div class="empty">No private offers today. Check back tomorrow.</div>'}`;
+    )}</tbody></table></div><div class="row" style="margin-top:14px"><label class="subtle-text">Sales approach <select id="sale-dial" class="inline-select" data-change="sale-dial">${[["quiet", "Quiet · lower profile"], ["normal", "Normal · balanced"], ["aggressive", "Aggressive · more heat"]].map(([d, label]) => `<option value="${d}" ${d === saleDial ? "selected" : ""}>${label}</option>`).join("")}</select></label>${btn("Sell all held stock", "sell-all", "", "small", !!v.over)}</div>${orders.length ? `<h3 class="section-gap">Tonight’s orders</h3>${orders.map((o) => `<div class="order-item">${esc(o.text)}${o.product ? ` <button class="quiet-link" data-action="cancel-sale" data-id="${o.product}">Cancel</button>` : ""}</div>`).join("")}` : ""}${labPanelHTML()}<h3 class="section-gap">Private buyers</h3>${v.contracts.length ? `<div class="cards">${v.contracts.map((c) => `<article class="card" id="contract-${c.id}"><span class="tag">${esc(c.status)}</span><h3>${esc(c.name)}</h3><p>${esc(c.pitch)}</p><div class="stat-row"><span><b>${c.units}</b>units</span><span><b>${c.delivered}</b>delivered</span><span><b>${c.due}</b>due day</span></div>${c.status === "offered" ? btn("Accept contract", "contract", c.id, "small") : btn("Deliver stock", "deliver", c.id, "small")}</article>`).join("")}</div>` : '<div class="empty">No private offers today. Check back tomorrow.</div>'}`;
 }
 function renderCrew() {
   const lt = query("rules.crew.lieutenancy"),
@@ -331,7 +332,7 @@ function renderCrew() {
     most = query("rules.crew.max_crew"),
     hint = howTheyCome(v),
     warn = crew.crewWarning(v, tun);
-  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
+  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day${labHandHTML(m, true)}</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
 }
 // The crew tab's answers (#551, the TUI's crew screen): each member's
 // card with where they are, the SNITCH mark, the lines they cross and
@@ -344,7 +345,7 @@ function memberCard(m, lt, tun, flip) {
   const tag = crew.crewTag(v, m, query("rules.crew.retiring", m.id)),
     where = crew.post(v, m),
     status = m.role === "lieutenant" && !m.jailed && !m.wounded ? lieutenantStatus(m, lt) : `<span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>`;
-  return `<article class="card" id="member-${m.id}"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}${tag ? ` <span class="tag ${tag === "retiring" ? "gold" : "coral"}">${esc(tag)}</span>` : ""}<h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.floor(m.loyalty)}</b>loyalty</span><span><b>${money(query("rules.crew.wage_at", m.id, v.you.pay))}</b>a day, ${esc(v.you.pay)}</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p><small class="${m.loyalty < crew.lineOf(m, tun, flip) ? "danger-text" : "subtle-text"}">${esc(crew.linesLine(m, tun, flip))}</small><br>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${status}${m.exposed ? '<br><span class="danger-text">Talking to the police.</span>' : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", m.id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", m.id, "small", !!v.over)}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`;
+  return `<article class="card" id="member-${m.id}"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}${tag ? ` <span class="tag ${tag === "retiring" ? "gold" : "coral"}">${esc(tag)}</span>` : ""}<h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.floor(m.loyalty)}</b>loyalty</span><span><b>${money(query("rules.crew.wage_at", m.id, v.you.pay))}</b>a day, ${esc(v.you.pay)}</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p><small class="${m.loyalty < crew.lineOf(m, tun, flip) ? "danger-text" : "subtle-text"}">${esc(crew.linesLine(m, tun, flip))}</small><br>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${status}${labHandHTML(m, false)}${m.exposed ? '<br><span class="danger-text">Talking to the police.</span>' : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", m.id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", m.id, "small", !!v.over)}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`;
 }
 // crewSummary is the CREW block under the cards (the TUI pane's CREW).
 function crewSummary() {
@@ -369,7 +370,7 @@ function memberSheet(id) {
   const temper = m.role !== "lieutenant" ? "" : m.personality ? `Temper: ${m.personality} · ${temperLine(temperOf(lt, m.personality) || {})}` : m.city ? `Temper shows after ${Math.max(1, lt.RevealDays - (v.day - m.assigned))} more days running it` : "Temper shows on the job";
   const fire = m.exposed ? "Fire: the file stops growing; nobody minds." : `Fire: the rest lose ${Math.round(tun.FireLoyalty)} loyalty, not for a snitch.`;
   modal(
-    `<span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}<h2>${esc(m.name)}</h2><p>Skill ${m.skill} · Hired Day ${m.hired}${age ? "<br>" + esc(age) : ""}<br>Loyalty ${Math.floor(m.loyalty)} · <span class="subtle-text">${esc(crew.linesLine(m, tun, flip))}</span><br>Wage ${money(query("rules.crew.wage_at", m.id, v.you.pay))}/day ${esc(v.you.pay)} · <span class="subtle-text">${esc(wages)}</span><br>Carry capacity ${m.carry}<br><span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>${temper ? "<br>" + esc(temper) : ""}</p>${m.exposed ? '<p class="danger-text"><b>SNITCH</b>: talking to the police.</p>' : ""}<p class="subtle-text">${esc(fire)}</p><div class="card-actions">${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", id, "small", !!v.over)}${btn("Fire", "fire", id, "subtle", !!v.over)}</div>`,
+    `<span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}<h2>${esc(m.name)}</h2><p>Skill ${m.skill} · Hired Day ${m.hired}${age ? "<br>" + esc(age) : ""}<br>Loyalty ${Math.floor(m.loyalty)} · <span class="subtle-text">${esc(crew.linesLine(m, tun, flip))}</span><br>Wage ${money(query("rules.crew.wage_at", m.id, v.you.pay))}/day ${esc(v.you.pay)} · <span class="subtle-text">${esc(wages)}</span><br>Carry capacity ${m.carry}<br><span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>${temper ? "<br>" + esc(temper) : ""}${labHandHTML(m, false)}</p>${m.exposed ? '<p class="danger-text"><b>SNITCH</b>: talking to the police.</p>' : ""}<p class="subtle-text">${esc(fire)}</p><div class="card-actions">${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", id, "small", !!v.over)}${btn("Fire", "fire", id, "subtle", !!v.over)}</div>`,
   );
 }
 function renderEmpire() {
@@ -607,7 +608,7 @@ function exportFile() {
   notify("Save exported");
 }
 async function action(a, id) {
-  if (alignedAction(a, id)) return;
+  if (alignedAction(a, id) || labAction(a, id)) return;
   try {
     switch (a) {
       case "close":
@@ -1542,4 +1543,87 @@ function nonnegative(id) {
 }
 function scoutFaction(a) {
   return a.faction || "";
+}
+
+// The cut and the cook (#557, the TUI's market dialogs, ui/quality.go):
+// the market's lab panel, a product page and a number page for each,
+// and the chemist's hand on the crew cards. The words are lab.js's.
+function labQualityHTML(id) {
+  const held = v.you.stock[v.you.city]?.[id];
+  if (!held) return "";
+  const q = lab.quality(v, query, v.you.city, id);
+  return `<br><small class="${q < lab.streetQuality(query) ? "warn-text" : "subtle-text"}">Quality ${Math.round(q)}</small>`;
+}
+function labPanelHTML() {
+  const cook = lab.refuseCook(v, query),
+    cut = lab.refuseCut(v, query),
+    lots = lab.onTheWay(v);
+  return `<section class="paper lab-panel" id="lab"><div class="eyebrow">THE LAB</div><p class="subtle-text">${esc(lab.chemist(v) && !v.you.lie_low && lab.cookProducts(v, query, v.you.city).length ? lab.chemistLine(v, query, v.you.city) : cook)}</p>${lots.map((l) => `<p class="lab-lot">${esc(l)}</p>`).join("")}<div class="card-actions">${btn("Cook a batch", "lab-cook", "", "small", !!cook || !!v.over)}${btn("Cut stock", "lab-cut", "", "small", !!cut || !!v.over)}</div>${cut && !v.over ? `<p class="subtle-text">${esc(cut)}</p>` : ""}</section>`;
+}
+function labHandHTML(m, pool) {
+  return lab
+    .hand(v, query, m, pool)
+    .map(([k, t, warn]) => `<br><small class="${warn ? "warn-text" : "subtle-text"}">${k ? `${esc(k[0].toUpperCase() + k.slice(1))} · ` : ""}${esc(t)}</small>`)
+    .join("");
+}
+// labDialog is the cut's or the cook's dialog where you stand: with no
+// product the product page, with one the number page.
+function labDialog(kind, id) {
+  const here = v.you.city,
+    cook = kind === "cook",
+    title = `${cook ? "Cook" : "Cut"} · ${cityName(here)}`,
+    refusal = cook ? lab.refuseCook(v, query) : lab.refuseCut(v, query);
+  if (refusal) {
+    modal(`<h2>${esc(title)}</h2><p>${esc(refusal)}</p>`);
+    return;
+  }
+  if (!id) {
+    const head = cook ? ["Product", "Cook", "Buy", "Stash"] : ["Product", "Stash", "Quality", "Most", "Price"],
+      rows = cook ? lab.cookRows(v, query, here).map((r) => [r.id, r.name, r.cook, r.buy, r.stash]) : lab.cutRows(v, query, here).map((r) => [r.id, r.name, r.units, r.quality, r.most, r.price]);
+    modal(
+      `<div class="eyebrow">THE LAB</div><h2>${esc(title)}</h2><div class="table-wrap"><table class="data-table"><thead><tr>${head.map((h) => `<th>${h.toUpperCase()}</th>`).join("")}<th></th></tr></thead><tbody>${rows.map(([pid, ...cells]) => `<tr id="lab-${esc(pid)}">${cells.map((c, i) => `<td>${i ? esc(String(c)) : `<b>${esc(c)}</b>`}</td>`).join("")}<td>${btn(cook ? "Cook" : "Cut", "lab-" + kind, pid, "small")}</td></tr>`).join("")}</tbody></table></div><p class="subtle-text">${esc(cook ? lab.chemistLine(v, query, here) : "Cut what?")}</p>`,
+    );
+    return;
+  }
+  const most = cook ? lab.cookMax(v, query, here, id) : lab.cutMax(v, query, here, id),
+    name = v.cities.find((c) => c.id === here).products.find((p) => p.id === id)?.name || id,
+    head = cook ? `${query("rules.crew.chemist_name")} cooks ${name}` : `${name}: ${lab.stock(v, here, id)} at quality ${Math.round(lab.quality(v, query, here, id))}`,
+    note = cook ? lab.cookNote(v, query, here, id) : lab.cutNote(v, query, here, id);
+  modal(
+    `<div class="eyebrow">THE LAB</div><h2>${esc(title)}</h2><p><b>${esc(head)}</b></p><p class="subtle-text">In hand ${money(v.you.dirty_cash)} dirty · ${money(v.you.clean_cash)} clean</p><label>${cook ? "Units" : "Percent added"} <small class="subtle-text">up to ${most}</small><input id="lab-qty" type="number" min="1" max="${most}" placeholder="${cook ? "blank = a batch" : "blank = the most"}"></label><p class="lab-live" id="lab-live"></p><p class="subtle-text">${esc(note)}</p><div class="card-actions">${btn(cook ? "Cook" : "Cut", "lab-" + kind + "-submit", id, "primary", most <= 0 || !!v.over)}${btn("Back", "lab-" + kind, "", "subtle")}</div>`,
+  );
+  const live = () => {
+    const r = lab.readQty($("#lab-qty").value, most);
+    $("#lab-live").textContent = r.error || !r.n ? "" : cook ? "Cost: " + lab.cookCostLine(v, query, here, id, r.n) : "After: " + lab.cutAfterLine(v, query, here, id, r.n);
+  };
+  $("#lab-qty").addEventListener("input", live);
+  live();
+  $("#lab-qty").focus();
+}
+function labAction(a, id) {
+  switch (a) {
+    case "lab-cook":
+    case "lab-cut":
+      labDialog(a.slice(4), id);
+      return true;
+    case "lab-cook-submit":
+    case "lab-cut-submit": {
+      const cook = a === "lab-cook-submit",
+        here = v.you.city,
+        r = lab.readQty($("#lab-qty").value, cook ? lab.cookMax(v, query, here, id) : lab.cutMax(v, query, here, id));
+      if (r.error) {
+        $("#lab-live").innerHTML = `<span class="danger-text">${esc(r.error)}</span>`;
+        return true;
+      }
+      if (cook) {
+        const k = act("cook", [here, id, r.n], "");
+        if (k) notify(lab.cookDone(v, k));
+      } else {
+        const rec = act("cut", [here, id, r.n / 100], "");
+        if (rec) notify(lab.cutDone(v, query, rec));
+      }
+      return true;
+    }
+  }
+  return false;
 }

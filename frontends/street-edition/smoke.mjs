@@ -297,10 +297,75 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   }
   for (const a of session.call("asset_offers")) clean(wash.assetTerms(a), `${a.ID}'s terms`);
 }
+{
+  // The cut and the cook (#557): a Cook run cooks a batch and cuts the
+  // lot in the web's words, lab.js's numbers on view 17's quality and
+  // room, and each act reaches the engine.
+  const lab = await import(pathToFileURL(path.join(dist, "lab.js")));
+  const s = new Session(globalThis.kingpin);
+  const q = (m, ...p) => s.call(m, ...p);
+  const clean = (x, what) => assert.doesNotMatch(String(x), /undefined|NaN|\[object/, what);
+  let v = s.newRun(41, "cook");
+  // A day's weed trade, as the main run does: the start's cash alone
+  // pays a precursor or two and then not the chemist's wage.
+  const day = () => {
+    if (s.view.card) s.choose(0);
+    const sup = s.view.connects.find((c) => c.open && !c.wholesale && c.city === s.view.you.city);
+    const n = sup ? Math.min(20, s.maxBuy(sup.id, "weed").max) : 0;
+    if (n) {
+      s.buy(sup.id, "weed", n);
+      s.sell(s.view.you.city, "weed", n, "normal");
+    }
+    s.endDay();
+    return s.refresh();
+  };
+  for (let i = 0; i < 40 && v.you.dirty_cash < 1500 && !v.over; i++) v = day();
+  assert.ok(!v.over && v.you.dirty_cash >= 1500, "the Cook earns a cook's cash");
+  const here = v.you.city,
+    chem = lab.chemist(v);
+  assert.ok(chem, "the Cook starts with a chemist at the lab");
+  assert.equal(lab.refuseCook(v, q), null, "the Cook can cook");
+  assert.equal(typeof v.you.room[here], "number", "view 17 carries the room");
+  const ids = lab.cookProducts(v, q, here);
+  assert.ok(ids.length, "a product the chemist cooks is on the ladder");
+  const id = ids[0];
+  for (const r of lab.cookRows(v, q, here)) clean(Object.values(r).join(" "), "a cook row");
+  for (const l of [lab.chemistLine(v, q, here), lab.cookNote(v, q, here, id), lab.cookCostLine(v, q, here, id, 5), ...lab.hand(v, q, chem, false).flat()]) clean(l, "a cook line");
+  const top = lab.cookMax(v, q, here, id);
+  assert.ok(top > 0 && top <= q("rules.crew.batch_in", here), "a batch to cook");
+  assert.equal(lab.readQty("", top).n, top, "blank is a batch");
+  assert.ok(lab.readQty("x", top).error && lab.readQty("0", top).error, "not a whole number");
+  const most = Math.min(top, 3);
+  const k = s.call("cook", here, id, most);
+  v = s.refresh();
+  assert.equal(k.Units, most, "the cook reaches the engine");
+  assert.match(lab.cookDone(v, k), new RegExp(`is cooking ${most} .* ready in ${q("rules.crew.cook_days")} days?\\. Cost \\$`), "the cook's words");
+  assert.equal(lab.cooking(v, here, id), most, "the lot is on its way");
+  assert.equal(lab.onTheWay(v).length, 1, "the lot on its way is listed");
+  for (let i = 0; i < 10 && v.cooks.length && !v.over; i++) v = day();
+  assert.ok(lab.stock(v, here, id) >= most, "the batch landed");
+  assert.equal(Math.round(v.you.quality[here][id]), Math.round(k.Quality), "the lot is at the cook's quality");
+  assert.equal(lab.refuseCut(v, q), null, "the lot can be cut");
+  assert.ok(lab.cutProducts(v, q, here).includes(id), "the cooked product can be cut");
+  for (const r of lab.cutRows(v, q, here)) clean(Object.values(r).join(" "), "a cut row");
+  clean(lab.cutNote(v, q, here, id), "the cut's terms");
+  assert.match(lab.cutNote(v, q, here, id), new RegExp(`${chem.name}'s hand keeps`), "the chemist's hand in the cut");
+  const pct = lab.cutMax(v, q, here, id);
+  assert.ok(pct > 0, "room and cash to cut");
+  const preview = lab.cutPreview(v, q, here, id, pct);
+  clean(lab.cutAfterLine(v, q, here, id, pct), "the cut's after line");
+  const rec = s.call("cut", here, id, pct / 100);
+  v = s.refresh();
+  assert.equal(rec.Units + rec.Added, preview.units, "the preview's units are the cut's");
+  assert.ok(Math.abs(rec.To - preview.quality) < 1e-6, "the preview's quality is the cut's");
+  assert.equal(rec.Cost, preview.cost, "the preview's cost is the cut's");
+  assert.ok(Math.abs(v.you.quality[here][id] - rec.To) < 1e-6, "view 17 carries the cut quality");
+  clean(lab.cutDone(v, q, rec), "the cut's words");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, and save round-trip.`,
 );
 process.exit(0);

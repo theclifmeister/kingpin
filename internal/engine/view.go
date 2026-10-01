@@ -27,8 +27,10 @@ import (
 // score, the bodies, the summary's stats, the walk away's pending pages
 // and the stage waiting to be seen. Nothing in it is new state.
 // 16 every alert's danger and notice, the reign alert's slip and the
-// scouts alert's faction (#549).
-const ViewVersion = 16
+// scouts alert's faction (#549). 17 (#557) the cut and the cook
+// dialogs' two numbers: the quality of each lot you hold and the free
+// room in each city's stash.
+const ViewVersion = 17
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -228,6 +230,10 @@ type YouView struct {
 	PagesDue     int    `json:"pages_due,omitempty"`      // pages last night's lump offshore files tonight (#494): the walk away waits
 	PagesPending int    `json:"pages_pending,omitempty"`  // ... and today's reserve's, filed tomorrow night (#525)
 	Reserved     int    `json:"reserved_today,omitempty"` // clean cash on its way offshore tonight (#195)
+
+	// View 17 (#557).
+	Quality map[string]map[string]float64 `json:"quality"` // city id -> product id -> the quality of the lot held there (#47, World.Quality), street and houses; a product with no units is absent
+	Room    map[string]int                `json:"room"`    // city id -> the units the stash there has free (World.Free): what a cut adds and a cook lands into
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -708,15 +714,18 @@ func (s *Session) View() View {
 		}
 	}
 	street := map[string]map[string]int{} // city -> product -> units, built here so the view shares no map with the world
+	v.You.Quality, v.You.Room = map[string]map[string]float64{}, map[string]int{}
 	for _, cid := range w.CityOrder {
 		c := w.Cities[cid]
-		stock := map[string]int{}
+		stock, quality := map[string]int{}, map[string]float64{}
 		for _, pid := range w.Products {
 			if n := w.Stock(cid, pid); n > 0 {
 				stock[pid] = n
+				quality[pid] = w.Quality(cid, pid)
 			}
 		}
 		street[cid] = stock
+		v.You.Quality[cid], v.You.Room[cid] = quality, w.Free(cid)
 		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill}
 		if cp := c.Campaign; cp.Ticket != "" || cp.Cash > 0 {
 			cv.Campaign = &CampaignView{Ticket: cp.Ticket, Cash: cp.Cash, Hedged: cp.Hedged}

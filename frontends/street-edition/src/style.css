@@ -1504,3 +1504,13 @@ button.alert-item.notice {
 .card .danger-text {
   color: var(--coral);
 }
+/* The lab (#557): the market's cook and cut panel and its dialogs. */
+.lab-panel {
+  margin-top: 17px;
+}
+.lab-panel p {
+  margin: 8px 0;
+}
+.lab-live {
+  min-height: 1.4em;
+}

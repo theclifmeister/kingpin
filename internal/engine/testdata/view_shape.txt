@@ -1,4 +1,4 @@
-version 16
+version 17
 .version int
 .seed uint64
 .day int
@@ -38,6 +38,11 @@ version 16
 .you.pages_due int
 .you.pages_pending int
 .you.reserved_today int
+.you.quality map[string]
+.you.quality{} map[string]
+.you.quality{}{} float64
+.you.room map[string]
+.you.room{} int
 .cities []
 .cities[].id string
 .cities[].name string
