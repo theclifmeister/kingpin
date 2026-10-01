@@ -54,22 +54,26 @@ def build():
     crew = tomllib.loads((ROOT / 'internal/content/crew.toml').read_text())
     rivals = tomllib.loads((ROOT / 'internal/content/rivals.toml').read_text())
     heat = tomllib.loads((ROOT / 'internal/content/heat.toml').read_text())
+    intel = tomllib.loads((ROOT / 'internal/content/intel.toml').read_text())
     # The crew's confirms (#551) read three numbers no rule serves: a
     # blank investigation's loyalty, the enforcers a war needs, and the
-    # skill under which a runner is sloppy.
+    # skill under which a runner is sloppy. The cop dialog (#552) reads
+    # a cop's price and how straight their word is at it.
     info = {'commit': revision, 'protocol': EXPECTED_PROTOCOL, 'view': EXPECTED_VIEW,
             'frontRoles': {f['id']: f['role'] for f in upgrades['front']},
             'traits': {k: v['says'] for k, v in crew['trait'].items()},
             'investigateLoyalty': crew['informant']['investigate_loyalty'],
             'takenOutMuscle': rivals['endings']['taken_out_muscle'],
-            'sloppySkill': heat['heat']['sloppy_skill']}
+            'sloppySkill': heat['heat']['sloppy_skill'],
+            'copPrice': intel['intel']['cop_price'],
+            'copAccuracy': intel['intel']['cop_accuracy']}
     (OUT / 'engine-info.js').write_text('export const engineInfo = ' + json.dumps(info) + ';\n')
     subprocess.run([GO, 'build', '-buildvcs=false', '-o', str(OUT / 'assets/kingpin.wasm'), './cmd/kingpin-wasm'],
                    cwd=ROOT, env={**os.environ, 'GOOS': 'js', 'GOARCH': 'wasm'}, check=True)
     goroot = Path(subprocess.check_output([GO, 'env', 'GOROOT'], text=True).strip())
     shutil.copyfile(goroot / 'lib/wasm/wasm_exec.js', OUT / 'assets/wasm_exec.js')
     shutil.copyfile(go_license(goroot), OUT / 'assets/GO-LICENSE.txt')
-    for name in ['app.js', 'index.html']:
+    for name in ['app.js', 'law.js', 'index.html']:
         path = OUT / name
         path.write_text(path.read_text().replace('__BUILD_REVISION__', revision))
     print(f'Built {OUT} from {revision}')
