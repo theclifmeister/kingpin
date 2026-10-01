@@ -78,7 +78,8 @@ export function refuseCook(v, q) {
 }
 
 // cutMax is the most percent a cut of the product can add: cut_max,
-// held to the room in the city and the till.
+// held to the room in the city and the till with tonight's wages kept
+// back (rules.crew.spare, #569).
 export function cutMax(v, q, city, id) {
   const units = stock(v, city, id);
   let most = Math.trunc(q("rules.market.cut_max", id) * 100);
@@ -87,20 +88,18 @@ export function cutMax(v, q, city, id) {
   if (room < Math.trunc((units * most) / 100)) most = Math.min(most, Math.trunc((room * 100) / units));
   const cost = q("rules.market.cut_cost", id);
   if (cost > 0) {
-    const affordable = Math.trunc(v.you.dirty_cash / cost);
+    const affordable = Math.trunc(q("rules.crew.spare") / cost);
     if (affordable < Math.trunc((units * most) / 100)) most = Math.min(most, Math.trunc((affordable * 100) / units));
   }
   return Math.max(0, most);
 }
 
 // cookMax is the most units a cook order can be for: the batch where
-// it stands, the room with what is on its way counted, and the till.
+// it stands, the room with what is on its way counted, and the till
+// with tonight's wages kept back. The engine's rule (rules.crew.cook_max,
+// #569), the TUI's too, so the two cannot drift.
 export function cookMax(v, q, city, id) {
-  let most = q("rules.crew.batch_in", city);
-  most = Math.min(most, (v.you.room?.[city] ?? 0) - cooking(v, city, id));
-  const cost = cookCost(q, city, id);
-  if (cost > 0) most = Math.min(most, Math.trunc(v.you.dirty_cash / cost));
-  return Math.max(0, most);
+  return q("rules.crew.cook_max", city, id, q("rules.market.cook_cost", id));
 }
 
 // readQty reads a dialog's number (the TUI's readQty): blank is the

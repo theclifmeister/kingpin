@@ -333,6 +333,10 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   for (const l of [lab.chemistLine(v, q, here), lab.cookNote(v, q, here, id), lab.cookCostLine(v, q, here, id, 5), ...lab.hand(v, q, chem, false).flat()]) clean(l, "a cook line");
   const top = lab.cookMax(v, q, here, id);
   assert.ok(top > 0 && top <= q("rules.crew.batch_in", here), "a batch to cook");
+  // #569: the blank keeps tonight's wages back (rules.crew.cook_max).
+  const spare = q("rules.crew.spare");
+  assert.equal(spare, Math.max(0, v.you.dirty_cash - q("rules.crew.wages", v.you.pay)), "spare is the till less tonight's wages");
+  assert.ok(top * lab.cookCost(q, here, id) <= spare, "the cook max leaves the wages in hand");
   assert.equal(lab.readQty("", top).n, top, "blank is a batch");
   assert.ok(lab.readQty("x", top).error && lab.readQty("0", top).error, "not a whole number");
   const most = Math.min(top, 3);

@@ -145,3 +145,29 @@ func TestCookDialog(t *testing.T) {
 	}
 	_ = game.RoleChemist
 }
+
+// TestCookBlankKeepsTheWages (#569): the cook's blank is the engine's
+// cook_max, the till with tonight's wages kept back, so the order it
+// places leaves the wages in hand.
+func TestCookBlankKeepsTheWages(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	home := w.Player.Location
+	if w.Product(home, "meth") == nil {
+		t.Skip("the fixture has no meth")
+	}
+	withChemist(m)
+	wages := m.rules.Crew.Wages(w, w.Crew.Pay)
+	cost := m.rules.Crew.CookCostIn(w, home, m.rules.Market.CookCost("meth"))
+	w.Player.DirtyCash = wages + 3*cost - 1 // the till buys 3, the wages kept back 2
+	m.Update(key("2"))
+	m.Update(key("o"))
+	m.Update(key("enter"))
+	if got := m.cookMax(); got != 2 {
+		t.Fatalf("the cook max %d with %d dirty, %d in wages, %d a unit", got, w.Player.DirtyCash, wages, cost)
+	}
+	m.Update(key("enter")) // blank: the most
+	if m.mode != modePlay || len(w.Crew.Cooks) != 1 || w.Crew.Cooks[0].Units != 2 || w.Player.DirtyCash < wages {
+		t.Fatalf("the blank cook: mode %v err %q, %+v, %d dirty against %d in wages", m.mode, m.lab.err, w.Crew.Cooks, w.Player.DirtyCash, wages)
+	}
+}

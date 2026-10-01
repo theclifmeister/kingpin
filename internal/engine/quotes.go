@@ -115,6 +115,7 @@ type CrewRules interface {
 	ChemistName(w *game.World) string
 	ChemistQuality(w *game.World) float64
 	CookCostIn(w *game.World, city string, cost int) int
+	CookMax(w *game.World, city, product string, cost int) int
 	CookDays() int
 	Cut() float64
 	CutBonus(w *game.World) float64
@@ -134,6 +135,7 @@ type CrewRules interface {
 	QualityOf(skill int) float64
 	Retiring(m game.CrewMember) bool
 	RevealDays() int
+	Spare(w *game.World) int
 	Trait(name string) content.Trait
 	TraitDays() int
 	Tuning() content.CrewTuning

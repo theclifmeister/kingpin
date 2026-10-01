@@ -19,7 +19,8 @@ import (
 // (the units, the quality, the price multiplier, the chemist's hand)
 // and what it costs. The cook (`o`, modeCook) is a chemist's order:
 // the number is the units, up to their batch, the room and the till,
-// and the page says the quality the lot lands at and when. Both are
+// and the page says the quality the lot lands at and when. Both maxes
+// keep tonight's wages back (#569). Both are
 // for where you stand: a cut is done in the stash you can reach, and
 // the chemist works where you are.
 
@@ -112,7 +113,8 @@ func (m *Model) askCook() {
 }
 
 // cutMax is the most percent a cut of the product can add: cut_max,
-// held to the room where you stand and the till.
+// held to the room where you stand and the till with tonight's wages
+// kept back (crew.Sim.Spare, #569).
 func (m *Model) cutMax() int {
 	d := &m.lab
 	units := m.w.Stock(d.city, d.product)
@@ -124,7 +126,7 @@ func (m *Model) cutMax() int {
 		most = min(most, room*100/units)
 	}
 	if cost := m.rules.Market.CutCost(d.product); cost > 0 {
-		affordable := m.w.Player.DirtyCash / cost
+		affordable := m.rules.Crew.Spare(m.w) / cost
 		if affordable < units*most/100 {
 			most = min(most, affordable*100/units)
 		}
@@ -134,15 +136,11 @@ func (m *Model) cutMax() int {
 
 // cookMax is the most units a cook order can be for: the chemist's
 // batch, the room where you stand with what is on its way counted, and
-// the till.
+// the till with tonight's wages kept back, the engine's rule (#569)
+// that Street Edition reads too.
 func (m *Model) cookMax() int {
 	d := &m.lab
-	most := m.rules.Crew.BatchIn(m.w, d.city) // the lab's batch where it stands (#48)
-	most = min(most, m.w.Free(d.city)-m.w.Crew.Cooking(d.city, d.product))
-	if cost := m.rules.Crew.CookCostIn(m.w, d.city, m.rules.Market.CookCost(d.product)); cost > 0 {
-		most = min(most, m.w.Player.DirtyCash/cost)
-	}
-	return max(0, most)
+	return m.rules.Crew.CookMax(m.w, d.city, d.product, m.rules.Market.CookCost(d.product))
 }
 
 // labMax is the number page's max for the open dialog.

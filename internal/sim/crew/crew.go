@@ -147,6 +147,26 @@ func (s *Sim) CookCostIn(w *game.World, city string, cost int) int {
 	return cost
 }
 
+// Spare is the dirty cash a lab order may spend today (#569): the till
+// less tonight's wages at the dial, which the night pays out of it.
+// Upkeep is not in it: the fronts and the assets pay theirs clean.
+func (s *Sim) Spare(w *game.World) int {
+	return max(0, w.Player.DirtyCash-s.Wages(w, w.Crew.Pay))
+}
+
+// CookMax is the most units a cook order of a product in a city can be
+// for (#569): the batch there, the room with what is on its way counted,
+// and what Spare buys at the unit's precursors (cost is cook_cost as the
+// caller prices it, CookCostIn's). The TUI's and the web's cook dialogs
+// read it as their blank.
+func (s *Sim) CookMax(w *game.World, city, product string, cost int) int {
+	most := min(s.BatchIn(w, city), w.Free(city)-w.Crew.Cooking(city, product))
+	if c := s.CookCostIn(w, city, cost); c > 0 {
+		most = min(most, s.Spare(w)/c)
+	}
+	return max(0, most)
+}
+
 // LoyaltyLoss is what the player's respect and the tree leave of a day's
 // loyalty loss: 1 for a nobody with no nodes, less for a name the crew
 // are proud to work for, times loyalty_loss_mul.

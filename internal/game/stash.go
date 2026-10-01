@@ -427,11 +427,15 @@ func (w *World) MigrateLots(quality, repeat float64) {
 }
 
 // TotalStock is every unit the operation holds: every street, every
-// house and everything on the road.
+// house, everything on the road and every lot a chemist is cooking
+// (#569): a lot paid for and on its way is stock, as a shipment is.
 func (w *World) TotalStock() int {
 	n := w.Stashed()
 	for _, s := range w.Shipments {
 		n += s.Units
+	}
+	for _, k := range w.Crew.Cooks {
+		n += k.Units
 	}
 	return n
 }

@@ -13186,6 +13186,32 @@
         "type": "integer"
       }
     },
+    "rules.crew.cook_max": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "cost",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.crew.cut": {
       "changes": false,
       "needsRun": true,
@@ -13445,6 +13471,19 @@
       }
     },
     "rules.crew.reveal_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.spare": {
       "changes": false,
       "needsRun": true,
       "params": {
@@ -16863,7 +16902,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 27,
+  "protocol": 28,
   "title": "kingpind",
   "view_version": 17
 }
