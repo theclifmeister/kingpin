@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569 and #554. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554 and #573. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -17,7 +17,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Alerts | Each alert lands where it is answered (`ui/alerts.go` `openAlert`) | done (#549; the law's, #552) |
 | Alerts | Their answers: investigate, call in the favour, back a ticket, raise the till | done (#551, #552, #553) |
 | Alerts | `file`, `crew_line`, `investigation`, `reign`, `contract_due`, `scouts` words | done (#549) |
-| Alerts | Every other clause of `ui/alerts.go` | partial: the clauses `webLeavesOut` names (`cmd/kingpin-web/parity_test.go`, see below); open #573 |
+| Alerts | Every other clause of `ui/alerts.go` | done (#573: the remedies and the missing facts; `webLeavesOut` keeps only the TUI's own way in and the retirement line, which the two count apart) |
 | Turn flow | Fast-forward, holds, the most severe stop (`ui/fast.go`) | open #555 |
 | Turn flow | End-day preview: danger styling, `unknown`, delivered, the wash (`ui/daypreview.go`) | done (#549) |
 | Turn flow | The morning's danger alarm (`ui/model.go` `morning`) | done (#549, a red toast) |

@@ -48,7 +48,7 @@ const (
 	AlertStashFull     AlertKind = "stash_full"    // the stash in City holds Count of its Amount, at or over houses.toml's full_share
 	AlertLanded        AlertKind = "landed"        // a route keeps Product in City and Count of it sits in the stash there with no order selling it (#503)
 	AlertScouts        AlertKind = "scouts"        // Faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
-	AlertGate          AlertKind = "gate"          // Gate within reach
+	AlertGate          AlertKind = "gate"          // Gate within reach, Amount of its peak line still to go (#573)
 	AlertPort          AlertKind = "port"          // the port untouched and worth the road (#476): City, Count free corners, Product at Amount, Supplier the wholesaler at Share of street
 	AlertExports       AlertKind = "exports"       // the Cartel stage and no load ever sent (#505): the lane out of City carries Count a night, Product paid Amount a unit abroad on Have off the book; Ready once the book is owned
 	AlertHouseKnown    AlertKind = "house_known"   // the police know about House
@@ -185,7 +185,7 @@ type Alert struct {
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Front    string  `json:"front,omitempty"`    // front_shut: the front's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
-	Amount   int     `json:"amount,omitempty"`   // broke: tonight's wages; war_muscle: taken_out_muscle; exports: the price abroad a unit; debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
+	Amount   int     `json:"amount,omitempty"`   // broke: tonight's wages; war_muscle: taken_out_muscle; exports: the price abroad a unit; debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight; gate: the peak still to go (#573)
 	Have     int     `json:"have,omitempty"`     // broke: the cash in hand, both piles; war_muscle: the enforcers on the payroll; file: the most pages one bust files (#519); exports: a unit off the book; debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean; pages: the pages filed last night with no bust
 	Heat     float64 `json:"heat,omitempty"`     // heat, arrest: the city's heat; exposure: what the pile adds tonight
 	Line     float64 `json:"line,omitempty"`     // broke: the cheapest unit where you stand; heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
@@ -344,7 +344,7 @@ func (s *Session) Alerts() []Alert {
 			if g.Kind == "front" || g.Kind == "asset" {
 				act = actLedger
 			}
-			out = append(out, Alert{Kind: AlertGate, Key: "unlock:" + g.Kind + ":" + g.ID, Gate: &g, Act: act})
+			out = append(out, Alert{Kind: AlertGate, Key: "unlock:" + g.Kind + ":" + g.ID, Gate: &g, Amount: g.ToGo(w), Act: act})
 		}
 	}
 	out = append(out, s.port()...)

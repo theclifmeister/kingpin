@@ -126,6 +126,13 @@ func TestUnlockAlerts(t *testing.T) {
 	if want := fmt.Sprintf("The Laundromat opens at %s peak: %s to go.", cash(o.UnlockCash), cash(o.UnlockCash-m.w.Stats.PeakCash)); stripANSI(a.text) != want {
 		t.Fatalf("alert %q, want %q", stripANSI(a.text), want)
 	}
+	// The wire carries the distance the TUI works out (#573), so the
+	// web words it off the alert.
+	for _, e := range m.sess.Alerts() {
+		if e.Key == key && e.Amount != o.UnlockCash-m.w.Stats.PeakCash {
+			t.Fatalf("the gate alert's amount is %d, %d to go", e.Amount, o.UnlockCash-m.w.Stats.PeakCash)
+		}
+	}
 	closeMorning(t, m)
 	if !strings.Contains(stripANSI(m.View()), "The Laundromat opens at") {
 		t.Fatalf("the dashboard does not carry the alert:\n%s", stripANSI(m.View()))

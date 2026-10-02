@@ -40,27 +40,8 @@ var webLeavesOut = map[engine.AlertKind][]string{
 	engine.AlertStraight: {"go straight (walk away) or play on"},
 	engine.AlertVanish:   {"vanish on the new identity with $700 offshore (walk away) or play on"},
 
-	// The remedy: what answers the alert, which the web lands on but
-	// does not say. Ruled 2026-10-01: ported (#573).
-	engine.AlertPages:      {"and fire whoever it names", "they are gone", "nobody to fire", "every tip to the police can file a page"},
-	engine.AlertWarMuscle:  {"hire muscle"},
-	engine.AlertSkim:       {"watch the loyalty"},
-	engine.AlertIdleCorner: {"post a runner"},
-	engine.AlertStashFull:  {"rent a house or move stock"},
-	engine.AlertScouts:     {"answer them"},
-	engine.AlertHouseKnown: {"move the stock out and drop it"},
-	engine.AlertWages:      {"cash out clean"},
-	engine.AlertFavour:     {"call it in", "chief ambrose owes you one and the task force comes tonight"}, // and the web names no chief, and says "taskforce"
-	engine.AlertUnposted:   {"put them on the wharf", "have them guard the wharf", "send the enforcers at a rival's or buy a block", "or post them in eastside"},
-	engine.AlertNoCorner:   {"or buy a block", "or sell in eastside"}, // the web says "another city"
-
-	// Facts the web drops or words apart: gaps to port (#573).
-	engine.AlertFloat:    {"the wash and the road wait"},
-	engine.AlertTill:     {"the wash takes the rest"},
-	engine.AlertGate:     {"the laundromat opens at $900 peak", "$500 to go"},
-	engine.AlertExposure: {"tonight's 2 loads land $700 past your cover", "+4 heat before the wash"},
-	engine.AlertReign:    {"2 crew paying $300 a night"}, // the web says "2 crews"
-	// The TUI counts the quiet days off the streak and the account off
+	// The remedies and the other facts are said since #573 (ruled
+	// 2026-10-01: ported, not left to the landing). The TUI counts the quiet days off the streak and the account off
 	// the world; the web, the days and the cash short the alert carries.
 	engine.AlertRetire: {"retiring", "5 of 14 quiet days", "$749k short"},
 }
@@ -172,7 +153,7 @@ func alertFixture(t *testing.T, path string) []parityAlert {
 		{Kind: engine.AlertLanded, City: here.ID, Product: product, Count: 40},
 		{Kind: engine.AlertScouts, Faction: faction, City: here.ID, Level: "scouting", Days: 4},
 		{Kind: engine.AlertScouts, Faction: faction, City: home, Level: "recruiting"},
-		{Kind: engine.AlertGate, Gate: &engine.Gate{Kind: "front", ID: "laundromat", Name: "Laundromat", Line: 900}},
+		{Kind: engine.AlertGate, Gate: &engine.Gate{Kind: "front", ID: "laundromat", Name: "Laundromat", Line: 900}, Amount: 500},
 		{Kind: engine.AlertPort, City: home, Count: 6, Product: product, Amount: 950, Supplier: w.Suppliers[0].ID, Share: 0.35},
 		{Kind: engine.AlertExports, City: here.ID, Product: product, Amount: 310, Have: 45, Count: 160},
 		{Kind: engine.AlertExports, City: here.ID, Product: product, Amount: 310, Have: 45, Count: 160, Ready: true},
