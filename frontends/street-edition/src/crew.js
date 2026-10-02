@@ -151,6 +151,25 @@ export function crewWarning(v, tun) {
   return "";
 }
 
+// trouble is the morning's crew trouble in a line (ui crewTrouble,
+// #345, #522): "2 near or under the line, 1 corner unworked", or "".
+// Every member in the band counts once, whether an alert names them or
+// they are under their skim line (a lieutenant's turn line) however far
+// from the walk; the corners are the idle-corner alerts.
+export function trouble(v, tun, flip) {
+  const band = new Set();
+  let idle = 0;
+  for (const a of v.alerts) {
+    if (a.kind === "crew_line") band.add(a.member);
+    else if (a.kind === "idle_corner") idle++;
+  }
+  for (const m of v.crew) if (m.loyalty < lineOf(m, tun, flip)) band.add(m.id);
+  const parts = [];
+  if (band.size) parts.push(`${band.size} near or under the line`);
+  if (idle) parts.push(plural(idle, "corner") + " unworked");
+  return parts.join(", ");
+}
+
 // countLine is "N of M on the payroll" and the word past the cap (#497).
 export function countLine(v, most) {
   const n = v.crew.length;

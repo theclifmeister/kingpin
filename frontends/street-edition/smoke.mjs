@@ -823,10 +823,82 @@ if (!session.view.over) {
   }
   for (const u of v.upgrades) for (const x of routine.requiresNames(v, u)) assert.ok(v.upgrades.some((w) => w.name === x.name), `${u.id} requires by name`);
 }
+// The dashboard's facts (#574): a run of its own (seed 41, stingy pay,
+// four hired, the stash sold aggressive each night) reaches a patrol's
+// cap by day 9 and crew under the line by day 16; its enforcer is sent
+// at a rival corner and the war order is declared, as the page does it.
+{
+  const crew = await import(pathToFileURL(path.join(dist, "crew.js")));
+  const law = await import(pathToFileURL(path.join(dist, "law.js")));
+  const table = await import(pathToFileURL(path.join(dist, "rivals.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  const s = new Session(globalThis.kingpin),
+    q = (m, ...p) => s.call(m, ...p);
+  s.newRun(41);
+  q("set_pay", "stingy");
+  const tun = q("rules.crew.tuning"),
+    flip = q("rules.crew.flip_line");
+  let capped = "",
+    troubled = "",
+    struck = "",
+    warred = "";
+  for (let i = 0; i < 40 && !s.view.over && !(capped && troubled && struck && warred); i++) {
+    if (s.view.card) s.choose(0);
+    let v = s.refresh();
+    for (const m of v.pool)
+      if (v.crew.length < 4 && m.fee < v.you.dirty_cash * 0.3) {
+        s.hire(m.id);
+        v = s.refresh();
+      }
+    const supplier = v.connects.find((x) => x.open && !x.wholesale && x.city === v.you.city);
+    const n = supplier ? s.maxBuy(supplier.id, "weed").max : 0;
+    if (n) {
+      s.buy(supplier.id, "weed", n);
+      s.sell(v.you.city, "weed", n, "aggressive");
+    }
+    v = s.refresh();
+    // The cap on the risk panel, naming the city whose patrol set it.
+    if (v.law.sell_cap_days > 0 && !capped) {
+      capped = law.patrolCapLine(v);
+      const where = v.cities.find((c) => c.id === v.law.sell_cap_city).name;
+      assert.equal(capped, `Patrols in ${where}: sales capped at ${Math.round(v.law.sell_cap * 100)}% of demand for ${v.law.sell_cap_days} day${v.law.sell_cap_days === 1 ? "" : "s"} more.`, "the patrol's cap");
+    }
+    // The crew's trouble: each member in the band once, the idle corners.
+    const t = crew.trouble(v, tun, flip);
+    if (t && !troubled) {
+      troubled = t;
+      const band = new Set([...v.alerts.filter((a) => a.kind === "crew_line").map((a) => a.member), ...v.crew.filter((m) => m.loyalty < crew.lineOf(m, tun, flip)).map((m) => m.id)]);
+      assert.ok(t.startsWith(`${band.size} near or under the line`), "the crew's trouble: " + t);
+    }
+    // The strike tonight, by the corner's name, and the war order's line.
+    const target = v.cities.find((c) => c.id === v.you.city).corners.find((c) => c.owner === "rival");
+    const enforcer = v.crew.find((m) => m.role === "enforcer" && !m.jailed && !m.wounded);
+    if (target && enforcer && !struck) {
+      q("send_enforcers", target.id, "push");
+      struck = table.tonightLine(s.refresh(), q, engineInfo, { corner: target.id, force: "push" });
+      assert.equal(struck, `Enforcers go to ${target.name} tonight: push.`, "the strike tonight");
+      assert.equal(table.tonightLine(v, q, engineInfo, null), "", "no strike and no war, no line");
+    }
+    const f = target && v.factions.find((x) => x.id === (target.faction || "rival"));
+    if (f && struck && !warred && !table.warRefusal(v, f)) {
+      q("declare_war", f.id);
+      warred = table.tonightLine(s.refresh(), q, engineInfo, null);
+      assert.match(warred, new RegExp(`^War on ${f.leader}'s crew: (enforcers go to .+ tonight, ${engineInfo.warForce}\\.|no enforcer at work|nowhere to go tonight\\.)`), "the war's line: " + warred);
+      q("call_off_war");
+    }
+    s.endDay();
+    s.take();
+  }
+  assert.ok(capped, "the run reaches a patrol's cap");
+  assert.ok(troubled, "the run reaches crew trouble");
+  assert.ok(struck, "the run sends its enforcer");
+  assert.ok(warred, "the run declares the war");
+  assert.equal(law.patrolCapLine({ ...s.view, law: { ...s.view.law, sell_cap_days: 0 } }), "", "no cap, no line");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, and save round-trip.`,
 );
 process.exit(0);

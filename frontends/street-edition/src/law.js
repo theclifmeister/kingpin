@@ -90,6 +90,17 @@ export function lawLines(v) {
   return lines;
 }
 
+// patrolCapLine is the street's fact on a patrol's cap (ui
+// patrolCapLine, #507), naming the city whose patrol set it, since the
+// cap holds on every sale wherever it is: "Patrols in Eastside: sales
+// capped at 59% of demand for 2 days more.", or "" with no cap on.
+export function patrolCapLine(v) {
+  const l = v.law;
+  if (!(l.sell_cap_days > 0)) return "";
+  const who = l.sell_cap_city ? "Patrols in " + cityName(v, l.sell_cap_city) : "Patrols";
+  return `${who}: sales capped at ${pct(l.sell_cap)} of demand for ${plural(l.sell_cap_days, "day")} more.`;
+}
+
 // raceShown is whether there is a DA RACE to show (raceShown): the
 // tickets take money and there is an election to come.
 export function raceShown(v) {

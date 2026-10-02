@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581 and #582. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582 and #574. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -22,9 +22,9 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Turn flow | End-day preview: danger styling, `unknown`, delivered, the wash (`ui/daypreview.go`) | done (#549) |
 | Turn flow | The morning's danger alarm (`ui/model.go` `morning`) | done (#549, a red toast) |
 | Dashboard | Warrant marked on the risk panel; other cities' heat; "one file, every city" | done (#549) |
-| Dashboard | The crew-trouble summary | partial (#551: on the crew tab); the street view open #574 |
-| Dashboard | The patrol sales cap (`sell_cap`, in the view since #550) | open #574 |
-| Dashboard | "Strike tonight" and the war's "nobody goes in" | partial (#554: the war's "nobody goes in" on the faction at war's card); the strike line open #574 |
+| Dashboard | The crew-trouble summary | done (#574: on the street view and the crew tab) |
+| Dashboard | The patrol sales cap (`sell_cap`, in the view since #550) | done (#574) |
+| Dashboard | "Strike tonight" and the war's "nobody goes in" | done (#554: the war's "nobody goes in" on the faction at war's card; #574: the strike or the war order's corner on the street view, "⚔ push tonight" on the corner) |
 | Law | The chief and the DA named; the DA RACE block (`ui/race.go`) | done (#552) |
 | Law | Fund with city, goodwill preview, upkeep kept back; back a ticket | done (#552) |
 | Law | Call in the favour, with what it saves (`ui/law.go`) | done (#552) |
@@ -66,6 +66,19 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# The dashboard's facts (#574, no version moved)
+
+The TUI's STREET facts that the web lacked (`ui/dashboard.go` `streetLines`), as pure functions checked by `smoke.mjs`:
+
+- `law.patrolCapLine` (`patrolCapLine`, #507), on the risk panel above the LAW lines, off view 15's `sell_cap`, `sell_cap_days` and `sell_cap_city`: "Patrols in Eastside: sales capped at 59% of demand for 2 days more."
+- `rivals.tonightLine`, at the top of the street view: the strike queued tonight by the corner's name ("Enforcers go to The Projects tonight: push."), else the war order's corner and force, nobody to send (#554's words) or nowhere to go. The view does not carry `World.Today.Strike`, so the strike comes from the page's memo, which now keeps the corner and the force beside its text (the cart's line names the corner too, not its id); the memo is cleared at the end of the day as before. A rival corner with a strike on it reads "⚔ push tonight" on its map marker and in its dialog (`ui/map.go`). An old save's memo, without the corner, shows no line.
+- `crew.trouble` (`crewTrouble`, #345, #522), on the street view and the crew tab: "2 near or under the line, 1 corner unworked", each member in the band once (a `crew_line` alert or under their skim or turn line), the corners off the `idle_corner` alerts.
+
+Checks:
+
+- `smoke.mjs`: a run of its own (seed 41, stingy pay, four hired, the stash sold aggressive) reaches a patrol's cap by day 9 and the line names Eastside and the cap's share and days; reaches crew trouble and counts the band as the TUI does; sends its enforcer at The Projects and reads the strike line by name; declares the war and reads its line, then calls it off.
+- Chromium (Playwright, a day-18 save of that run): the cap on the risk panel, "Crew: 2 near or under the line" on the street view and the crew tab, and after sending enforcers from The Projects' dialog the street's strike line, the marker's "⚔ push tonight", the dialog's mark and the cart's "Enforcers sent to The Projects", with no console errors.
 
 # The connects, the market pane and the routes (#582, protocol 28 / view 20)
 

@@ -276,6 +276,25 @@ export function warNobodyWords(v) {
   return "no enforcer at work, so nobody goes in tonight and nothing is taken; they can still push you. Hire one on the Crew tab.";
 }
 
+// tonightLine is where the enforcers go tonight (the TUI dashboard's
+// strike fact): the strike you queued, `{corner, force}` off the page's
+// memo since the view does not carry World.Today.Strike, named by the
+// corner; else the war order's corner and force, nobody to send, or
+// nowhere to go; "" with neither.
+export function tonightLine(v, q, info, strike) {
+  if (strike) {
+    const c = cornerOf(v, strike.corner);
+    return c ? `Enforcers go to ${c.name} tonight: ${strike.force}.` : "";
+  }
+  const f = v.you.war && v.factions.find((x) => x.id === v.you.war);
+  if (!f) return "";
+  const who = rivalName(f),
+    nobody = warNobodyWords(v);
+  if (nobody) return `War on ${who}: ${nobody}`;
+  const c = cornerOf(v, q("rules.rivals.war_target", f.id));
+  return c ? `War on ${who}: enforcers go to ${c.name} tonight, ${info.warForce}.` : `War on ${who}: nowhere to go tonight.`;
+}
+
 // atPeace is a truce, a tribute or a homage live with the faction.
 export function atPeace(v, f) {
   return ["truce", "tribute", "homage"].some((k) => liveDeal(v, f, k));
