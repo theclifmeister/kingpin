@@ -58,13 +58,17 @@ def build():
     laundering = tomllib.loads((ROOT / 'internal/content/laundering.toml').read_text())
     houses = tomllib.loads((ROOT / 'internal/content/houses.toml').read_text())
     assets = tomllib.loads((ROOT / 'internal/content/assets.toml').read_text())
+    market = tomllib.loads((ROOT / 'internal/content/market.toml').read_text())
+    cities = tomllib.loads((ROOT / 'internal/content/city.toml').read_text())
     # The crew's confirms (#551) read three numbers no rule serves: a
     # blank investigation's loyalty, the enforcers a war needs, and the
     # skill under which a runner is sloppy. The cop dialog (#552) reads
     # a cop's price and how straight their word is at it. The walk away
     # and the war (#554) read the street's window going straight is
     # measured over, the crown's share and the war order's force. The houses
-    # and assets (#581) read a move's heat and what each asset does.
+    # and assets (#581) read a move's heat and what each asset does. The
+    # market pane's next product (#578) reads the ladder in the file's
+    # order and the products a city's supplier will not sell.
     info = {'commit': revision, 'protocol': EXPECTED_PROTOCOL, 'view': EXPECTED_VIEW,
             'frontRoles': {f['id']: f['role'] for f in upgrades['front']},
             'traits': {k: v['says'] for k, v in crew['trait'].items()},
@@ -77,14 +81,16 @@ def build():
             'kingpinShare': rivals['endings']['kingpin_share'],
             'warForce': rivals['war']['dial'],
             'moveHeat': houses['houses']['move_heat'],
-            'assets': {a['id']: {k: a.get(k, 0) for k in ['effect', 'own_ratio', 'capacity_mul', 'lab_mul', 'lab_quality', 'lab_cost_mul']} for a in assets['asset']}}
+            'assets': {a['id']: {k: a.get(k, 0) for k in ['effect', 'own_ratio', 'capacity_mul', 'lab_mul', 'lab_quality', 'lab_cost_mul']} for a in assets['asset']},
+            'ladder': [{'id': p['id'], 'name': p['name'], 'unlock_cash': p.get('unlock_cash', 0)} for p in market['product']],
+            'noSupply': {c['id']: [k for k, m in c.get('market', {}).items() if m.get('no_supply')] for c in cities['city']}}
     (OUT / 'engine-info.js').write_text('export const engineInfo = ' + json.dumps(info) + ';\n')
     subprocess.run([GO, 'build', '-buildvcs=false', '-o', str(OUT / 'assets/kingpin.wasm'), './cmd/kingpin-wasm'],
                    cwd=ROOT, env={**os.environ, 'GOOS': 'js', 'GOARCH': 'wasm'}, check=True)
     goroot = Path(subprocess.check_output([GO, 'env', 'GOROOT'], text=True).strip())
     shutil.copyfile(goroot / 'lib/wasm/wasm_exec.js', OUT / 'assets/wasm_exec.js')
     shutil.copyfile(go_license(goroot), OUT / 'assets/GO-LICENSE.txt')
-    for name in ['app.js', 'law.js', 'index.html']:
+    for name in ['app.js', 'law.js', 'stage.js', 'index.html']:
         path = OUT / name
         path.write_text(path.read_text().replace('__BUILD_REVISION__', revision))
     print(f'Built {OUT} from {revision}')

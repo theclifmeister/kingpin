@@ -980,10 +980,50 @@ if (!session.view.over) {
   assert.ok(warred, "the run declares the war");
   assert.equal(law.patrolCapLine({ ...s.view, law: { ...s.view.law, sell_cap_days: 0 } }), "", "no cap, no line");
 }
+// The stage and the new mark (#578): stage.js's words on a run that
+// hires on day 0 and so enters the Crew stage the next morning; the
+// stage waits through a save until see_stage, and is gone after it. The
+// market pane's next product, off engine-info's ladder.
+{
+  const stage = await import(pathToFileURL(path.join(dist, "stage.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  const clean = (t, what) => assert.ok(typeof t === "string" && t && !/undefined|NaN|\[object/.test(t), `${what}: ${t}`);
+  const s = new Session(globalThis.kingpin);
+  let v = s.newRun(41);
+  assert.equal(stage.pending(v), 0, "no stage on day 0");
+  assert.equal(stage.tierLabel(v), v.you.tier_name, "no mark on day 0");
+  assert.equal(stage.interstitial(v), null, "no interstitial on day 0");
+  assert.deepEqual(engineInfo.ladder.map((p) => p.id), ["weed", "pills", "coke", "heroin", "meth", "designer"], "the ladder in the file's order");
+  assert.equal(stage.nextProductNote(v, engineInfo, v.you.city), `Heroin lists at $3,000 peak cash ($${(3000 - v.you.peak_cash).toLocaleString("en-US")} to go).`, "the next product");
+  const eastside = { ...v, you: { ...v.you, peak_cash: 12_000 }, cities: v.cities.map((c) => ({ ...c, products: engineInfo.ladder.slice(0, 5).map((p) => ({ id: p.id })) })) };
+  assert.equal(stage.nextProductNote(eastside, engineInfo, "eastside"), "Designer lists at $500K peak cash ($488K to go); the supplier here will not sell it, the road brings it.", "the honest form");
+  assert.equal(stage.nextProductNote({ ...eastside, cities: eastside.cities.map((c) => ({ ...c, products: engineInfo.ladder })) }, engineInfo, "eastside"), "", "no line once the ladder is listed");
+  for (const m of [...v.pool].sort((a, b) => a.fee - b.fee)) if (m.fee <= s.refresh().you.dirty_cash && !s.refresh().crew.length) s.call("hire", m.id);
+  assert.ok(s.refresh().crew.length, "somebody hired");
+  s.endDay();
+  v = s.refresh();
+  assert.equal(stage.pending(v), 2, "the Crew stage the morning after the hire");
+  assert.equal(stage.tierLabel(v), `${v.you.tier_name} · new`, "the tier marked new");
+  const i = stage.interstitial(v);
+  assert.equal(i.title, "STAGE 2 · CREW");
+  for (const t of [i.blurb, i.text, i.next, ...i.opened]) clean(t, "the stage's words");
+  assert.ok(i.opened.length, "what it opened");
+  assert.equal(i.lanes, "", "no lanes before the Cartel");
+  assert.equal(stage.lanes({ ...v, you: { ...v.you, tier: 2 }, alerts: [{ kind: "exports" }] }), true, "the lanes where the exports alert stands");
+  const reloaded = new Session(globalThis.kingpin);
+  reloaded.importSave(s.exportSave());
+  assert.equal(stage.pending(reloaded.refresh()), 2, "a reload before it is seen still shows it");
+  s.call("see_stage", 2);
+  v = s.refresh();
+  assert.equal(stage.pending(v), 0, "seen");
+  assert.equal(stage.tierLabel(v), v.you.tier_name, "the mark goes once seen");
+  reloaded.importSave(s.exportSave());
+  assert.equal(reloaded.refresh().stage, undefined, "a reload after it is seen does not show it again");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the stage and the next product, and save round-trip.`,
 );
 process.exit(0);

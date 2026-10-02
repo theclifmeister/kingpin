@@ -14,6 +14,7 @@ import * as routine from "./routine.js?v=__BUILD_REVISION__";
 import * as property from "./property.js?v=__BUILD_REVISION__";
 import * as market from "./market.js?v=__BUILD_REVISION__";
 import * as roads from "./routes.js?v=__BUILD_REVISION__";
+import * as stage from "./stage.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -176,7 +177,7 @@ function confirm(title, text, callback) {
 function render() {
   if (!v) return;
   $("#day").textContent = "Day " + v.day;
-  $("#tier").textContent = v.you.tier_name;
+  $("#tier").textContent = stage.tierLabel(v);
   for (const [el, key] of [
     ["dirty", "dirty_cash"],
     ["clean", "clean_cash"],
@@ -634,6 +635,36 @@ function ending() {
       .join("")}`,
   );
 }
+// stageInterstitial is the stage entered this morning (#578, the TUI's
+// #149): the stage named, what it opened and what the next takes, shown
+// before the card. Closing it, however it closes, marks it seen
+// (see_stage) and goes on to the card; a reload before then shows it
+// again, as the TUI reopens a stage saved on the modal.
+let stageShown = 0;
+function stageInterstitial() {
+  const s = stage.interstitial(v);
+  if (!s) return;
+  stageShown = v.stage.pending;
+  modal(
+    `<div class="eyebrow">A NEW STAGE</div><h2>${esc(s.title)}</h2>${s.blurb ? `<p class="warn-text"><b>${esc(s.blurb)}</b></p>` : ""}<p>${esc(s.text)}</p>${s.opened.length ? `<h3>Opened</h3>${s.opened.map((o) => `<p>${esc(o)}</p>`).join("")}` : ""}${s.lanes ? `<p>${btn(esc(s.lanes) + " →", "stage-lanes", "", "small subtle")}</p>` : ""}<h3>Next</h3><p>${esc(s.next)}</p><div class="card-actions">${btn("Carry on", "close", "", "primary")}</div>`,
+  );
+}
+// stageOrCard is what a morning opens on: the stage not yet seen, else
+// the card waiting, as the TUI's showStage goes on to showCard.
+function stageOrCard() {
+  if (v.stage) stageInterstitial();
+  else if (v.card) dilemma();
+}
+// The close event is queued, so the one from the sheet the end of the
+// day closed lands after the stage has opened over it: an open sheet is
+// still the stage.
+$("#sheet").addEventListener("close", () => {
+  if (!stageShown || $("#sheet").open) return;
+  const n = stageShown;
+  stageShown = 0;
+  act("see_stage", [n], "", { close: false });
+  if (!v.over && v.card) dilemma();
+});
 function dilemma() {
   if (!v.card) return;
   modal(
@@ -703,6 +734,11 @@ async function action(a, id) {
   if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id) || propertyAction(a, id) || supplyAction(a, id)) return;
   try {
     switch (a) {
+      case "stage-lanes":
+        tab = "empire";
+        $("#sheet").close();
+        render();
+        break;
       case "close":
         $("#sheet").close();
         break;
@@ -1150,6 +1186,7 @@ $("#import-file").onchange = async (e) => {
           render();
           notify("Story restored");
           if (v.over) ending();
+          else if (v.stage) stageInterstitial();
         } catch (err) {
           notify(err.message, true);
         }
@@ -1214,6 +1251,7 @@ async function boot() {
     persist();
     render();
     if (v.over) ending();
+    else if (v.stage) stageInterstitial(); // saved on a stage not yet seen: it is still waiting
   } catch (e) {
     $("#loading").innerHTML =
       `<div class="loading-error"><h2>Could not open the city.</h2><p>${esc(e.message)}</p><p>Reload the page to retry. If this persists, keep your saved story and report this message.</p></div>`;
@@ -1516,7 +1554,7 @@ function alignedAction(a, id) {
           break;
         }
         act("end_day", [], "A new day in " + city().name);
-        if (v.card && !v.over) dilemma();
+        if (!v.over) stageOrCard();
         break;
       case "lead":
         openAlert(v.report.lead[Number(id)]);
@@ -2208,7 +2246,8 @@ function productPane(id) {
     st = routine.standingRow(v, query, c.id, id),
     rows = [...market.productPane(v, query, c.id, id), ...(st ? [["standing", st, "gold"]] : []), ...routine.contractRows(v, query, c.id, id).map(([t, k], i) => [i ? "" : "contract", t, k])],
     away = market.elsewhere(v, c.id, id),
-    notes = market.notes(v, query, c.id, id);
+    next = stage.nextProductNote(v, engineInfo, c.id),
+    notes = [...market.notes(v, query, c.id, id), ...(next ? [[next, "subtle"]] : [])];
   modal(
     `<div class="eyebrow">THE MARKET · ${esc(c.name.toUpperCase())}</div><h2>${esc(p.name)}</h2>${paneRowsHTML(rows)}${away.length ? `<h3>Elsewhere</h3>${paneRowsHTML(away)}` : ""}${notes.length ? `<h3>Notes</h3>${notes.map(([t, k]) => `<p class="${tone(k)}">${esc(t)}</p>`).join("")}` : ""}<div class="card-actions">${btn("Back", "close", "", "subtle")}</div>`,
   );
