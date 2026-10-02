@@ -22,9 +22,10 @@ import (
 // which something fires: the run over, a stage entered (#149: the modal
 // opens before the card and the report), a card dealt (it is answered
 // before the report, as always), an event of the kinds stopEvent names,
-// an alert the dashboard did not carry the morning before (alerts: a
-// contract due, heat over the patrol line, somebody talking, dirty cash
-// under the float, wages short), or the cap. The report of that day
+// an alert the dashboard did not carry the morning before that is no
+// notice (a contract due, heat over the patrol line, somebody talking,
+// wages short), or the cap: the engine's stop rule (#541,
+// engine/stoprule.go) decides, and this file only words it. The report of that day
 // opens with `Stopped after 3 days: contract due today.`, the first
 // reason that fired, and keeps the line until the next day ends, so r
 // reopens it as it was; the status bar says `Ran 3 days.`; the journal
@@ -105,8 +106,8 @@ func (m *Model) viewFast() string {
 		"",
 		row("days", days.View()),
 		"",
-		theme.Subtle.Render("Stops for a card, the police, the rival, the crew, the road, a buyer,"),
-		theme.Subtle.Render("the law, a routine that ran short, a gate crossed or a new alert."),
+		theme.Subtle.Render("Stops for a danger, an ending's door, something to answer before"),
+		theme.Subtle.Render("tonight, or something lost or changing hands. Never for a notice."),
 	}
 	if m.amt.err != "" {
 		body = append(body, "", theme.Bad.Render(m.amt.err))
@@ -278,6 +279,10 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "a load seized abroad"
 	case events.TrophySeized:
 		return "the feds took " + ev.Name
+	case events.DeedSeized:
+		return "the DA took the deed to " + ev.Name // #541: a holding gone, like an asset
+	case events.CrewPoached:
+		return ev.Name + " went over to " + ev.Rival // #541: a member gone, like a defection
 	case events.DealOffered:
 		return ev.Rival + " offers " + format.A(ev.Deal)
 	case events.DealBroken:

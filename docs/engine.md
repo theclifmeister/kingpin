@@ -87,7 +87,7 @@ The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s vo
     The alert's key is unchanged, so a fast-forward stops where it did.
 - **Gates** (#148). `engine.Gate` (`Kind`, `ID`, `Name`, `Line`, `Vouch`, `Clean`) with `Peak`, `ToGo` and `Near` (under `GateNear`, 0.5, of the line). `Session.GatesAhead()` and `NextGates()` find them. `Session.FrontOffers()` and `AssetOffers()` are the offers you do not own, the asset list less any the task force found; the TUI's `frontRows` and `assetRows` are those. A front that waits on an asset stays among the offers, locked, once the asset has stood (#525), and `Session.FrontsWaiting()` is the ones whose asset never has (on the wire as `fronts_waiting`). `Session.PagesPending()` is the pages today's move offshore will file, which the walk away waits on as it waits on `PagesDue` (#525, `docs/endings.md`); the rules gained `Market.DueShort` (why a contract buys under its shortfall, #524) and `Logistics.Waits` (what a route idle on the till waits on, #524). The TUI keeps the words: `gateText`, `gateThe`, `gateToGo`.
 - **Stops** (`engine/stops.go`).
-  - `StopsOn(e)` decides whether an event stops a fast-forward (a `WarrantSigned` always, #475), including each kind's conditions: an `Enforcement` past a patrol; a `CornerStruck` unless it is a war night that held; a `RivalBoosted` that failed; a `CornerTaken` from you; a `CornerLost` of yours, nobody working it (`idle`, #345) or the police's crackdown (#469: a corner of yours lost always stops, `TestLostCornersStop`); a `CrewShot` dead and yours; a `CrewPaid` short (a missed payroll, #518); a `WarEnded` not `Called` (a war you called off is in the report and runs past, #520); a `QuietBroken` (#519, where it `serves`, below); a `RivalAbsorbed` (a faction scattered or finished) and a `HoldBegan` (the crown's hold begun), never dangers (#530: a playtest's F ran past every faction going and the hold starting, and the last third of the run was waiting on a timer); and a fixed list of kinds that always stop. A `ReputationShifted` up stopped too until #504 ("notoriety up" needs no action; the dashboard's bars say it), and a `PressureShifted` up and an `Unlocked` until #519: notices, the pressure one a band crossed that the report could show unchanged at its rounding (`Eastside pressure 25 → 25`).
+  - `StopsOn(e)` decides whether an event stops a fast-forward (since #541 its class under the stop rule, below, is any but `notice`; `EventClass` holds the conditions) (a `WarrantSigned` always, #475), including each kind's conditions: an `Enforcement` past a patrol; a `CornerStruck` unless it is a war night that held; a `RivalBoosted` that failed; a `CornerTaken` from you; a `CornerLost` of yours, nobody working it (`idle`, #345) or the police's crackdown (#469: a corner of yours lost always stops, `TestLostCornersStop`); a `CrewShot` dead and yours; a `CrewPaid` short (a missed payroll, #518); a `WarEnded` not `Called` (a war you called off is in the report and runs past, #520); a `QuietBroken` (#519, where it `serves`, below); a `RivalAbsorbed` (a faction scattered or finished) and a `HoldBegan` (the crown's hold begun), never dangers (#530: a playtest's F ran past every faction going and the hold starting, and the last third of the run was waiting on a timer); and a fixed list of kinds that always stop. A `ReputationShifted` up stopped too until #504 ("notoriety up" needs no action; the dashboard's bars say it), and a `PressureShifted` up and an `Unlocked` until #519: notices, the pressure one a band crossed that the report could show unchanged at its rounding (`Eastside pressure 25 → 25`).
   - `Session.Stop(evs, before)` gathers a day's stops in this order: a new stage, a card, every alert whose key the morning before lacked and that is no notice (below), every event `StopsOn` names that the world says you could answer (`serves`, #442: a `ContractOffered` stops only in a city you stand in, work a corner in or hold stock in; one elsewhere is in the report and on the market and runs past, `TestOfferStopsWhereYouCanAnswerIt`; #519: a `QuietBroken` only while retiring is the plan pinned or the offshore account is open, `TestQuietStreakStops`) and that is news (`news`, #469, below). **The most severe wins** (#519): the first danger among them (`Stop.Danger`, loudest first), else the first. A playtest's investigation at file 5/6 stopped as "a card to answer" and the next F ran into the indictment; now the card is still there to answer and the stop line names the investigation (`TestADangerOutranksACard`).
   - **Holds** (#518, #519). `Session.Holds()` is the alert that ends the run on the coming night whatever the player does not do: a warrant out (`arrest`) or the run broke tonight (`broke`). `FastForward` runs no night while one stands and returns 0 days with a `StopAlert` on it; the TUI's `F` refuses in red with the alert's reason (`fastHeld`), and the day is ended by hand, where the END THE DAY? modal lists the alert first with its figures. On the wire it is the query `holds` (`TestWarrantHoldsFastForward`, `TestBrokeTonightAlert`).
   - **The run-enders said the night before** (#518, #520). `broke` is the crew sim's broke check read a morning early (`Session.broke`, `crew.Sim.BrokeLine`: nothing in stock, on the road or cooking (#569), and the till after tonight's debts, the loads landing and the wages under the cheapest unit where you stand): `amount` the wages, `have` the cash in hand, `count` the debt due tonight, `gap` the till left, `line` the cheapest unit; a danger on the market (a buy answers it), keyed once. `war_muscle` is an open war (declared, or over `war_threshold`) with fewer enforcers on the payroll than `taken_out_muscle`: `level` the faction, `have` the enforcers, `amount` the line, `count` the corners you hold; on the crew screen, keyed per faction and again, a danger, the morning your held corners are down to one (`TestWarMuscleAlert`). The `file` alert carries `have`, the most pages one bust files (`heat.Sim.MostPages`: a raid's two, the named hit's two), and stands from that many pages short (#519: a raid took a playtest's file from 4/6 to 6/6 with no "one more page" between; the TUI's words add `, and one bust can file 2`, `TestFileAlertSaysOneBust`).
@@ -99,18 +99,130 @@ The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s vo
     - A buyer's `ContractOffered` is #442's (`serves`): each is a new buyer and a new contract, so it stays a stop where you could answer it. Muting a kind for the run from the dialog (the issue's optional ask) is not done.
     - The memo also holds the last night's pages with no bust (`pagesNight`, #492), which the `pages` alert reads.
   - **The rule for notices and dangers** (#504). A playtest's F ran about 1.3 days mid-game, stopping for the till, the float, `within reach`, `notoriety up`, a full stash and a standing order short, and a tester skipped `Stopped: the DA's file` among them on day 239 and was indicted on day 242. So:
-    - **A notice never stops a fast-forward.** `Alert.Notice()` is the kinds that need no action (`noticeKinds`): `till` (the till holding), `float`, `gate` (within reach; since #519 the `Unlocked` the morning the door opens runs past too, the report's UNLOCKED says it), `stash_full` (a full stash loses nothing: a buy over the room is refused, a supply contract short of room runs past, a landing waits) and `da_race` (#519: the ledger says it every morning of the campaign). They stand on the dashboard's ALERTS as before. A `ReputationShifted` up is no stop at all, and a shortfall stops once in `OfferQuiet` (above). Everything else that stops still stops once by its key.
+    - **A notice never stops a fast-forward.** `Alert.Notice()` is the kinds that need no action (their class under the stop rule, below, is `notice`): `till` (the till holding), `float`, `gate` (within reach; since #519 the `Unlocked` the morning the door opens runs past too, the report's UNLOCKED says it), `stash_full` (a full stash loses nothing: a buy over the room is refused, a supply contract short of room runs past, a landing waits) `da_race` (#519: the ledger says it every morning of the campaign), and since #541 `landed`, `port`, `exports` and `plan`. They stand on the dashboard's ALERTS as before. A `ReputationShifted` up is no stop at all, and a shortfall stops once in `OfferQuiet` (above). Everything else that stops still stops once by its key.
     - **A danger is worded and styled apart and carries its numbers.** `Alert.Danger()` is `arrest`, `broke` (#518), `talking`, `pages`, `task_force`, `file`, `investigation`, a `crew_line` `under` and a `war_muscle` at one corner held (#520); `Stop.Danger()` is a danger alert, or a `WarrantSigned`, `TaskForceFormed`, `InvestigationOpened` or an `Enforcement` past a patrol. The TUI's report opens a danger stop `Stopped after 3 days on a danger: file 5/6: one more page is an indictment.` in bold red (`Model.fastDanger`, where a notice's is amber): the file's and the pages' stops carry the file, the warrant's `a warrant for your arrest, served tonight on any sale (heat 96 in Eastside, the line 95)`, the task force's `it comes tonight`, and every other danger the file after it (`fileNumbers`). The web client's toast is unchanged (its words are `alerts.js`'s; since #550 the protocol's `FastResult` carries the stop's `danger`); since #549 each alert carries its class as `danger` and `notice` (the class on the wire, above), which Street Edition styles.
-    - `TestNoticesNeverStop` pins the two sets and that a notice never stops; `TestQuietFastForwardStopsLittle` plays the distributor ninety days on seeds 7 and 11, clears the danger (no heat, no file, nobody talking, no warrant or investigation) and fast-forwards thirty days on its routines: no stop is a notice, and the stops are pinned at 13 or fewer, 3 or fewer neither a card nor a buyer asking (seed 7: 13 and 0, seed 11: 13 and 3, a landed load, a runner near the skim line and, with #530, a faction absorbed on day 120, all answers; 12 and 1 until #528's covered week and #531's lighter seizures moved the fixture's run; before #504 seed 7 also stopped on the float, 13 and 2, one of them a notice, which the test fails on by itself). `TestFastForwardDangerStop` (`ui/fast_test.go`) pins the TUI's danger line.
+    - `TestNoticesNeverStop` pins the two sets and that a notice never stops; `TestQuietFastForwardStopsLittle` plays the distributor ninety days on seeds 7 and 11, clears the danger (no heat, no file, nobody talking, no warrant or investigation) and fast-forwards thirty days on its routines: no stop is a notice, and the stops are pinned at 13 or fewer, 2 or fewer neither a card nor a buyer asking (seed 7: 13 and 0, seed 11: 12 and 2, a runner near the skim line and, with #530, a faction absorbed on day 120; 13 and 3 with a landed load until #541 made it a notice; 12 and 1 until #528's covered week and #531's lighter seizures moved the fixture's run; before #504 seed 7 also stopped on the float, 13 and 2, one of them a notice, which the test fails on by itself). `TestFastForwardDangerStop` (`ui/fast_test.go`) pins the TUI's danger line.
   - `Session.FastForward(days, after)` is the loop. It calls `EndDay` a day at a time, calls `after` with each day's events before weighing the day (the TUI saves and journals there, `dayEnded`), and returns the days run, the `Stop` (`stage`, `card`, `alert`, `event`, `over`, `cap`) and the stopping day's events.
   - The TUI's `stopEvent` is now only the words, and `stopWhy` words a `Stop`.
   - The TUI's per-day flash of enforcement for the bust scene is now taken from the day's events in `dayEnded`, in the order the bus published them. The bus subscriber (`onEvent`) is gone, because it could not be reset between days inside the engine's loop.
 - **Price facts** (`engine/prices.go`). `engine.Facts(p)` and `FactsAt(p, unit)` return `PriceFacts` (`Unit`, `Delta`, `Lo`, `Hi`, `Margin`): the day's change, the range of the history, and the margin over a unit, with no unit where the city's supplier does not sell the product. The TUI's `factsAt` copies them into its own `priceFacts`, which keeps the lieutenant's markup and the rendering. `Session.MaxBuy(supplier, product, credit)` (`BuyRoom`) and `Session.RestockPlan(city, days)` are the buy's reads (#356): the most a buy takes and the stash it lands in, and the restock's lines at the supply contracts' float (`market.Sim.Float`).
 
+**The stop rule (#541).** Four playtests in a row filed a fast-forward finding and the direction swung: #442, #469 and #504 trimmed stops for noise, #519 found `F` running past dangers, each fix moving `StopsOn` and the alerts item by item. The rule, written once (`engine/stoprule.go`), is what a fix is checked against:
+
+- **`F` stops only for**
+  - **a danger**: something that can end the run within a night or two (styled and worded apart, with its numbers);
+  - **an ending**: one of the endings' doors opening, closing or at risk (the reign, the hold, going straight, vanishing, retiring and its quiet streak);
+  - **an answer**: something that needs a move before the next night runs (a card, an offer you can answer, a deadline, a trouble the night repeats);
+  - **a turn**: something you held gone or hit (a corner, a member, a house, a load, an asset, a deed), or the street, the law or the table changing hands. A turn is said once.
+- **Everything else is a notice**: the report or the dashboard says it and it never stops `F`.
+- An alert stops once by its key, the morning the key is new; an event the morning it happens, filtered by the world (`serves`) and the nights before (`news`). A stage and a card are answers.
+- **When several stops land on one morning, a danger shows first**, so a card never hides one; otherwise the stage, the card, the new alerts loudest first, then the events in the bus's order.
+- **Holds**: a danger that ends the run on the coming night whatever you do not do (a warrant out, the run broke tonight) keeps `F` from starting at all.
+
+`Alert.Class()` and `EventClass(e)` return `ClassDanger`, `ClassEnding`, `ClassAnswer`, `ClassTurn` or `ClassNotice`; `Alert.Danger`, `Alert.Notice`, `Stop.Danger` and `StopsOn` are read off them, so the table is the code. `TestEveryKindIsClassed` fails on an alert kind or an event kind with no class, on a kind classed twice, and on a row below that is missing or disagrees with the code: a new kind is classed on purpose, here and in `stoprule.go`.
+
+#541 applied it: a `DeedSeized` (the DA took a deed) now stops like an `AssetSeized`, a `CrewPoached` that went over like a `CrewDefected` (one who stayed is a loyalty dip, in the report), and `landed`, `port`, `exports` and `plan` became notices (none needs a move before the night; each stands on the dashboard as before). #519's cases were already fixed by it: the warrant holds (a danger), a danger outranks a card, the quiet streak is an ending's, the file warns at two pages short (`file`), and pressure, the DA race and unlocks are notices.
+
+| alert | class | when |
+|---|---|---|
+| `arrest` | danger | a warrant out (also holds `F`) |
+| `broke` | danger | the run ends broke tonight (also holds `F`) |
+| `talking` | danger | somebody on the payroll is talking |
+| `pages` | danger | the file grew with no bust |
+| `task_force` | danger | a task force formed this morning |
+| `file` | danger | the file two pages or fewer from an indictment |
+| `investigation` | danger | an investigation open |
+| `war_muscle` | answer | a war short of muscle; a danger at the last corner |
+| `no_corner` | turn | the last corner in a city gone |
+| `contract_due` | answer | a contract due today or tomorrow |
+| `debt_due` | answer | a supplier's debt due |
+| `heat` | answer | heat over a rung's line where you are |
+| `front_shut` | turn | a front shut for its upkeep |
+| `float` | notice | |
+| `till` | notice | |
+| `wages` | answer | tonight's wages over the dirty cash |
+| `crew_line` | answer | a member near a line; a danger under the informant or flip line |
+| `skim` | answer | skimming suspected |
+| `unposted` | answer | a runner or enforcer with no post |
+| `idle_corner` | answer | nobody works a corner: back to the street in days |
+| `stash_full` | notice | |
+| `landed` | notice | |
+| `scouts` | answer | a faction on its way to a city you earn in |
+| `gate` | notice | |
+| `port` | notice | |
+| `exports` | notice | |
+| `house_known` | answer | the police know a house |
+| `da_race` | notice | |
+| `retire` | ending | retiring ready, or the quiet days counting |
+| `favour` | answer | the chief's favour comes tonight |
+| `reign` | ending | the reign's days, and its slip |
+| `straight` | ending | going straight open |
+| `vanish` | ending | vanishing open |
+| `exposure` | answer | tonight's landings put the pile past the cover |
+| `plan` | notice | |
+
+| event | class | stops when |
+|---|---|---|
+| `WarrantSigned` | danger | always |
+| `TaskForceFormed` | danger | always |
+| `InvestigationOpened` | danger | always |
+| `Enforcement` | danger | past a patrol |
+| `ReignBegan` | ending | the run's first reign |
+| `ReignBroken` | ending | always |
+| `HoldBegan` | ending | always |
+| `StraightOpened` | ending | always |
+| `StraightLapsed` | ending | always |
+| `QuietBroken` | ending | while retiring is the plan or the account is open |
+| `DealOffered` | answer | unless the faction offered the kind within `OfferQuiet` |
+| `ContractOffered` | answer | where you stand, work a corner or hold stock |
+| `RivalEyeing` | answer | always (the claim comes tomorrow) |
+| `RivalScouting` | answer | always |
+| `RivalRecruiting` | answer | always |
+| `SupplyShort` | answer | the morning it starts and is not covered; never for room |
+| `StandingShort` | answer | the morning it starts and is not covered |
+| `CrewPaid` | answer | a payroll short |
+| `CornerStruck` | turn | unless a war night that held |
+| `RivalBoosted` | turn | a boost that failed |
+| `CornerTaken` | turn | from you |
+| `CornerLost` | turn | yours |
+| `CrewShot` | turn | yours, dead |
+| `CrewPoached` | turn | gone over (not stayed) |
+| `WarEnded` | turn | unless you called it off |
+| `RivalMovedIn` | turn | always |
+| `RivalRaided` | turn | always |
+| `RivalAbandoned` | turn | always |
+| `RivalAbsorbed` | turn | always |
+| `CrewQuit` | turn | always |
+| `CrewDefected` | turn | always |
+| `CrewArrested` | turn | always |
+| `CrewRetired` | turn | always |
+| `SpyFound` | turn | always |
+| `IntelFalse` | turn | always |
+| `LieutenantWalked` | turn | always |
+| `FrontAudited` | turn | always |
+| `ShipmentSeized` | turn | always |
+| `ExportSeized` | turn | always |
+| `AssetSeized` | turn | always |
+| `TrophySeized` | turn | always |
+| `DeedSeized` | turn | always |
+| `TunnelFound` | turn | always |
+| `HouseRobbed` | turn | always |
+| `HouseRaided` | turn | always |
+| `HouseLost` | turn | always |
+| `DealBroken` | turn | always |
+| `ChiefReplaced` | turn | always |
+| `DAElected` | turn | always |
+| `BribeBackfired` | turn | always |
+| `RaidFellThrough` | turn | always |
+| `LeadsFiled` | turn | always |
+| `OfficialsCold` | turn | always |
+
+Every other event kind is a notice, among them a patrol, a `PressureShifted`, a `ReputationShifted`, an `Unlocked`, a `TierReached`, a `DebtLate` and a `ContractFailed` (each warned of by an alert that stopped), a `SupplierFrozen`, a `RivalLeaderArrested` (the faction keeps its corners), a `CampaignLost` (the `DAElected` beside it stops) and a `FrontsClosed` (the `AssetSeized` beside it stops).
+
 **What pins it.**
 
 - `TestFastForwardIsTheDayLoop` plays four seeds through `FastForward` and through `EndDay` weighed by `Stop` by hand. It finds the same days, the same stop and the same stopping events, and `after` called once a day with a whole day.
-- `TestStopsOnTheReadings` pins each condition, both ways.
+- `TestStopsOnTheReadings` pins each condition, both ways. `TestEveryKindIsClassed` (#541) pins the stop rule's table: every alert and event kind classed once, and each row here as the code has it.
 - `TestPriceFacts` pins the change, the range, the margin and `NoSupply`.
 - `TestAlertsAreKeyedOnce` plays eighty aggressive days and finds no empty or repeated key on any morning.
 - `TestEveryAlertHasAnAct` (#352): every kind names an act on a screen, and every alert eighty aggressive days raise carries one of its kind's. `TestUnpostedAlerts` and `TestStashFullAlerts` pin the two new kinds, their corner and city, their act and that each stops a fast-forward once (a full stash never, since #504: a notice).

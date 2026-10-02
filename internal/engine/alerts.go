@@ -506,37 +506,23 @@ const (
 	PagesTip       = "tip"       // your tip to the police came back as a page
 )
 
-// noticeKinds are the alerts that need no action (#504): the till
-// holding, the float, a gate within reach and a full stash, which loses
-// nothing (a buy over the room is refused, a supply contract short of
-// room runs past, a landing waits). They stand on the dashboard and
-// never stop a fast-forward: a playtest's F stopped about every 1.3
-// days mid-game on them, and a danger stop looked like one. The DA
-// race taking money is one too (#519): the ledger says so every
-// morning of the campaign.
-var noticeKinds = map[AlertKind]bool{AlertTill: true, AlertFloat: true, AlertGate: true, AlertStashFull: true, AlertDARace: true}
-
 // Notice reports whether the alert needs no action and so never stops
-// a fast-forward (#504, docs/engine.md).
-func (a Alert) Notice() bool { return noticeKinds[a.Kind] }
+// a fast-forward (#504): its class under the stop rule (Alert.Class,
+// #541, docs/engine.md). A playtest's F stopped about every 1.3 days
+// mid-game on the till, the float, a gate within reach and a full
+// stash, and a danger stop looked like one; the DA race taking money
+// joined them with #519, and a landed load, the port, the lanes abroad
+// and the plan with #541: none needs a move before the night.
+func (a Alert) Notice() bool { return a.Class() == ClassNotice }
 
 // Danger reports whether the alert is one the run can end on soon
-// (#504): a warrant, the run broke tonight (#518), somebody talking,
-// pages with no bust, a task force, the file near an indictment, an
-// investigation, a member under the informant line, a war short of
-// muscle on your last corner (#520). A front end words and styles a
-// danger stop apart from the rest, with its numbers.
-func (a Alert) Danger() bool {
-	switch a.Kind {
-	case AlertArrest, AlertBroke, AlertTalking, AlertPages, AlertTaskForce, AlertFile, AlertInvestigation:
-		return true
-	case AlertCrewLine:
-		return a.Cross == "under"
-	case AlertWarMuscle:
-		return a.Count <= 1
-	}
-	return false
-}
+// (#504): its class under the stop rule is a danger (Alert.Class): a
+// warrant, the run broke tonight (#518), somebody talking, pages with
+// no bust, a task force, the file near an indictment, an investigation,
+// a member under the informant line, a war short of muscle on your
+// last corner (#520). A front end words and styles a danger stop apart
+// from the rest, with its numbers.
+func (a Alert) Danger() bool { return a.Class() == ClassDanger }
 
 // tillNights is how many nights running the wash has left the dirty
 // pile at the till (#459), once that is laundering.toml's till_nights
