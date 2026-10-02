@@ -31,7 +31,7 @@ func TestReportLinesReadAsSentences(t *testing.T) {
 		events.Unlocked{Day: 5, Gate: "role", ID: game.RoleChemist, Name: "Chemists", Why: "Meth on the ladder"},
 	))
 	got := strings.Join(append(append([]string{}, w.Report.Sales...), w.Report.Unlocked...), "\n")
-	for _, want := range []string{"You took the order from a foreman at the docks: 30", "The offer from a foreman at the docks lapsed: 20", "Chemists want work on the crew screen (4): Meth on the ladder."} {
+	for _, want := range []string{"You took the order from a foreman at the docks: 30", "The offer from a foreman at the docks lapsed: 20", "Chemists want work: Meth on the ladder."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the report lacks %q:\n%s", want, got)
 		}
@@ -43,7 +43,7 @@ func TestReportLinesReadAsSentences(t *testing.T) {
 	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 99, Name: "Walt", Role: game.RoleChemist, Loyalty: 70})
 	w.Day = 5
 	n.Step(w, gametest.TickOn(w, 6, events.Unlocked{Day: 6, Gate: "role", ID: game.RoleChemist, Name: "Chemists", Why: "Meth on the ladder"}))
-	if got := strings.Join(w.Report.Unlocked, "\n"); !strings.Contains(got, "More chemists want work on the crew screen (4)") {
+	if got := strings.Join(w.Report.Unlocked, "\n"); !strings.Contains(got, "More chemists want work: Meth") {
 		t.Errorf("with a chemist on the payroll the line reads:\n%s", got)
 	}
 }

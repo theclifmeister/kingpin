@@ -42,7 +42,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		r.book(game.FlowRoutes, -(ev.Cost - ev.Clean), -ev.Clean)
 		r.add("crew", "InvestigationRun", base)
 		if ev.Found {
-			rep.Crew = append(rep.Crew, fmt.Sprintf("The investigation named %s: they have been talking to the police. Fire them (f) and the file stops growing.", ev.Name))
+			rep.Crew = append(rep.Crew, point(rep, "informant", game.Act{Screen: game.ScreenCrew, Mode: game.ModeFire}, fmt.Sprintf("The investigation named %s: they have been talking to the police. Fire them", ev.Name), " and the file stops growing."))
 		} else {
 			rep.Crew = append(rep.Crew, "The investigation named nobody. The crew resent being asked.")
 		}
@@ -145,7 +145,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		// The cut is the sales' net, and so is what a greedy one takes
 		// on top (#521): theirs, by name on their line, never a skim.
 		r.book(game.FlowSales, -(ev.Cut + ev.Extra), 0)
-		rep.Crew = append(rep.Crew, lieutenantLines(w, ev)...)
+		rep.Crew = append(rep.Crew, lieutenantLines(w, rep, ev)...)
 		if ev.Cut > 0 {
 			rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
 		}
@@ -198,7 +198,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		d.Name, d.Role = ev.Name, ev.Role
 		d = r.crew(d, ev.Rival)
 		r.addIntel("crew", "SpyPlanted", d)
-		rep.Intel = append(rep.Intel, fmt.Sprintf("%s went under with %s's crew tonight. They sell nothing for you now and report every few days; the intel screen (9) keeps what they send.", ev.Name, ev.Rival))
+		rep.Intel = append(rep.Intel, point(rep, "spy", game.Act{Screen: game.ScreenIntel}, fmt.Sprintf("%s went under with %s's crew tonight. They sell nothing for you now, and what they report every few days is kept", ev.Name, ev.Rival), "."))
 	case events.SpyFound:
 		d := base
 		d.Name, d.Role = ev.Name, ev.Role

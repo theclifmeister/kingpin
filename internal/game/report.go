@@ -28,6 +28,24 @@ type DayReport struct {
 	CashAfter  int
 	Flow       CashFlow // the night's money by category, dirty and clean (#351); CashBefore and CashAfter are its opening and closing
 	Lead       []Line   // the night's biggest changes, biggest first (#354): the report opens with them under TODAY
+	Points     []Point  // the section lines that point at a screen (#560), each by its text
+}
+
+// Point is where a section line of the report points (#560): the screen
+// that answers it, as an act, and the byte in the line's Text where a
+// front end words its pointer (the TUI its screen and key, " on the
+// ledger screen (7)"; Street Edition a link to the tab). The words
+// themselves name no screen and no key, so a front end that words no
+// pointer reads them whole. Kind names what the line is about (front,
+// asset, role, idle_crew, contract_offer, contract, informant, spy,
+// lure, seizure, books, offer, scouts, reign, straight), so a front end can land on the thing
+// itself. Text is the line exactly as its section holds it: two lines
+// alike point alike.
+type Point struct {
+	Kind string
+	Text string
+	At   int
+	Act  Act
 }
 
 // Line is one line of the morning's lead (#354): what changed, in
@@ -43,6 +61,7 @@ type Line struct {
 	Corner string
 	City   string
 	House  string
+	At     int // where in Text a front end words its pointer to Act (#560), as a Point's; 0 for none
 }
 
 // Act is what answers a line (#352): the screen that deals with it, the
@@ -65,11 +84,22 @@ const (
 	ScreenMap       = "map"
 	ScreenLedger    = "ledger"
 	ScreenRivals    = "rivals"
+	ScreenIntel     = "intel" // a report line's only (#560): no alert lands there
 )
 
 // ModePost is the one dialog an act opens: the post picker on the
 // line's Corner.
 const ModePost = "post"
+
+// The modes a report line's pointer names (#560) and no act opens: the
+// walk away on the dashboard, a route's dial on the map, a buyer's
+// delivery on the market and a member fired on the crew screen.
+const (
+	ModeWalk    = "walk_away"
+	ModeDial    = "dial"
+	ModeDeliver = "deliver"
+	ModeFire    = "fire"
+)
 
 // The subjects an act opens on, each the field of that name on the
 // alert or the line.

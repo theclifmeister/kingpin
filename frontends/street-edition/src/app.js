@@ -16,6 +16,7 @@ import * as market from "./market.js?v=__BUILD_REVISION__";
 import * as roads from "./routes.js?v=__BUILD_REVISION__";
 import * as stage from "./stage.js?v=__BUILD_REVISION__";
 import { glossary } from "./glossary.js?v=__BUILD_REVISION__";
+import * as report from "./report.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -576,9 +577,17 @@ function reportHTML(r) {
     .filter((sec) => sec.id !== "money" && sec.lines.length)
     .map(
       (sec) =>
-        `<div class="report-section"><div class="eyebrow">${esc(sec.title)}</div>${sec.lines.map((t) => `<p>${esc(t)}</p>`).join("")}</div>`,
+        `<div class="report-section"><div class="eyebrow">${esc(sec.title)}</div>${sec.lines.map((t, i) => reportLineHTML(sec, i, t)).join("")}</div>`,
     )
     .join("")}${r.day ? flowHTML(r.flow) + moneyHTML(r) : ""}`;
+}
+// reportLineHTML is a report line with its pointer (#560, report.js):
+// the words, then a link to the tab the line points at, where the page
+// has one.
+function reportLineHTML(sec, i, t) {
+  const a = report.pointAlert(report.pointOf(sec, i));
+  if (!a) return `<p>${esc(t)}</p>`;
+  return `<p>${esc(t)} <button class="report-link" data-action="report-point" data-id="${esc(`${a.kind}|${a.act.screen}|${a.act.mode || ""}`)}">${esc(report.linkWords(landing(a).tab))}</button></p>`;
 }
 // moneyHTML is the rest of the report's MONEY section, under the flow
 // table as the TUI draws it (ui/report.go moneyLines, #351, #522): the
@@ -1488,6 +1497,7 @@ function openAlert(a) {
     }
   }
   else if (l.open === "favour") action("favour");
+  else if (l.open === "routes") routes();
   else if (l.open === "investigate" && v.crew.length && !v.over) action("investigate");
   const picked = l.select && document.getElementById(l.select);
   if (picked) {
@@ -1569,6 +1579,11 @@ function alignedAction(a, id) {
         act("end_day", [], "A new day in " + city().name);
         if (!v.over) stageOrCard();
         break;
+      case "report-point": {
+        const [kind, screen, mode] = id.split("|");
+        openAlert({ kind, act: { screen, mode } });
+        break;
+      }
       case "lead":
         openAlert(v.report.lead[Number(id)]);
         break;

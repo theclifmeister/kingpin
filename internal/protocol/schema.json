@@ -3339,6 +3339,9 @@
         "act": {
           "$ref": "#/$defs/game.Act"
         },
+        "at": {
+          "type": "integer"
+        },
         "city": {
           "type": "string"
         },
@@ -3512,6 +3515,29 @@
       ],
       "type": "object"
     },
+    "engine.PointView": {
+      "properties": {
+        "act": {
+          "$ref": "#/$defs/game.Act"
+        },
+        "at": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "line",
+        "at",
+        "kind",
+        "act"
+      ],
+      "type": "object"
+    },
     "engine.PoolsView": {
       "properties": {
         "clean": {
@@ -3680,6 +3706,12 @@
           },
           "type": "array"
         },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/engine.PointView"
+          },
+          "type": "array"
+        },
         "title": {
           "type": "string"
         }
@@ -3687,7 +3719,8 @@
       "required": [
         "id",
         "title",
-        "lines"
+        "lines",
+        "points"
       ],
       "type": "object"
     },
@@ -17188,5 +17221,5 @@
   },
   "protocol": 28,
   "title": "kingpind",
-  "view_version": 21
+  "view_version": 22
 }

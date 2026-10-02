@@ -429,20 +429,25 @@ const (
 // walk the first number moves on day 16, the boss's laundromat paying no
 // upkeep in its first covered week (upkeep_grace_days). No seizure falls
 // in the sixty days, so #531's weighed seizure moves nothing here.
+// Again for #560 (a report line points at a screen by an act, its words
+// naming none): day 1 by the shape alone (DayReport.Points and a lead
+// line's At in the walk), and the report's words after; with
+// World.Report left out of the walk every one of the sixty days is
+// main's digest: no number moved.
 var seedDigest = []string{
-	"7f642922c9dd0df2", "4c2d825d6e6697d1", "3876b3fa61cbeeb9", "3006862332e392a6",
-	"ddb35a99a1a6322e", "ad2791be0e9c6ce3", "fa0e0e18f9b77f4d", "39ed6d2ffc182c56",
-	"21a11989067d9049", "c04c11fedb6dd922", "b97b9836dfcfa025", "d8a822b4fcb29af0",
-	"108b5c72e8c24458", "7d7e7c83bae62926", "3f70a70c2c706104", "e79ba93b7c5416b6",
-	"c7beecbcfa332995", "619584bec3c8896c", "e856205cea592e6a", "aaa1a1b5497209ae",
-	"f8a73469015bdc2b", "df9ba09c722f9578", "c259608851e39e53", "5e030cc9605f8bc0",
-	"ed4e06460adb2b71", "f315f645ab4dcad8", "59be395beb024829", "64b178d023862937",
-	"e59ca1b83ba5919e", "63ef8d42373109a0", "a1ffa0434751757d", "56b7de5973ca181d",
-	"cf521e42015c5d7b", "ae10c2315a9830c8", "36d4cf870b67630b", "ec041420c61a0382",
-	"f2b04d39723e54ff", "2824c1f9959b5ac7", "7ab32d0b801363f9", "f1e228e06300733d",
-	"becd647c08b81272", "fb56fa1049a5798c", "7aaee7f59833186e", "c0f072ce6715d9b9",
-	"f0a2e82e53c6a542", "6db10bc762afb0f9", "97d708bbc1d6c097", "c95e05b067cf5712",
-	"39dd12480150f06e", "7086c96c84ba9d5c", "1c6fba202c81fb42", "632c8cb3826e3c92",
-	"769d1a38f0198aa7", "3c539e51976cf162", "695f239f836bc7c2", "83571a01843c639a",
-	"f3ed2d8e0dae1090", "186c017778fbf1ee", "b6dbe9b6660b0db9", "942b2883433bfb59",
+	"0885f14fbd7f5655", "f84ded0ecec543d6", "37802b14725c169c", "db88855342ea9342",
+	"fb37510e5e2bfb9b", "4843f6a581a2770f", "4ed5837c2d46e1e1", "f1b75a406fe0b19a",
+	"d3f8ec77936c6b95", "a0d5b0539595d5a0", "4c99de9dba43e741", "cdfb9f051c15ec1e",
+	"6a65b0035d55c754", "4f67dde1fc135beb", "aa3cf0c09eb6df2d", "e4eb9db92bc56196",
+	"3a4f4ff4c63544f0", "52a76067239aa06e", "8769f412dc67516a", "9c3727f4dbad1e23",
+	"df4ffe5240e59b5f", "fcf85af87e780f81", "4cbbc540612b225c", "fd3728dd7958ccef",
+	"71e4c6da6ede2354", "bf6ce47929f09f43", "4b6e732f7d86eb6c", "a855b4aba4f79de6",
+	"b9a5b7f87d5fc421", "6b61a8ef2e35d8a5", "3c5308fc24062bce", "f686c0b573d82f1a",
+	"51f98576809ded37", "80171bd2f0314372", "5234c1008989093a", "181661ef126c3387",
+	"01bc3ba464c78c1b", "2af1e02c181e1678", "af0ddbb27b0dd7ec", "335ecce80421eff4",
+	"1495427a69340b57", "051abd70a65fe3db", "d2112c9348752b45", "286f68a0d5bc7ca0",
+	"ee3e9cab492a534a", "ee8055a4b75e3280", "83b97c04acbb40d6", "fdbc3259bbaf6217",
+	"2b6c94851e94e9f1", "55fcd1dee90b7ce7", "861fcb75121dbdf5", "9e9c05621f5d958f",
+	"f409dcbd2ba13019", "88e98eaa9c746618", "8ed58ab7e76aa9e4", "37e6ff658a9aa465",
+	"83d165d1d83294e2", "cfdb290f4c0cae08", "b6978bb33fccda9b", "ff4be7b4fb099c33",
 }

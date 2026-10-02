@@ -41,7 +41,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		// stays on the home stream and a connect's on the
 		// connects', where they were, so no pinned run moves; a
 		// front's and a role's come off their own side stream.
-		rep.Unlocked = append(rep.Unlocked, unlockLine(w, ev))
+		rep.Unlocked = append(rep.Unlocked, unlockLine(w, rep, ev))
 		d := r.at(ev.City)
 		d.Name = ev.Name
 		switch ev.Gate {
@@ -96,13 +96,13 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			r.add("market", "PlayerSoldBig", d)
 		}
 	case events.ContractOffered:
-		rep.Sales = append(rep.Sales, fmt.Sprintf("%s Answer it on the market screen (2)%s: it stands %s.", ev.Pitch, r.in(ev.City), format.Plural(ev.Expires-t.Day+1, "day")))
+		rep.Sales = append(rep.Sales, point(rep, "contract_offer", game.Act{Screen: game.ScreenMarket}, ev.Pitch+" Answer it", fmt.Sprintf("%s: it stands %s.", r.in(ev.City), format.Plural(ev.Expires-t.Day+1, "day"))))
 		d := r.at(ev.City)
 		d.Product = w.ProductName(ev.Product)
 		d.Name = ev.Name
 		r.addBuyers("ContractOffered", d)
 	case events.ContractAccepted:
-		line := fmt.Sprintf("You took the order from %s: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, r.in(ev.City))
+		line := point(rep, "contract", game.Act{Screen: game.ScreenMarket, Mode: game.ModeDeliver}, fmt.Sprintf("You took the order from %s: %d %s by day %d%s. Deliver it there", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, r.in(ev.City)), ".")
 		// The market hands a lot over before it settles yesterday's
 		// acceptances, so an order taken and delivered on one day would
 		// read handed before it was taken (#465): the acceptance goes in

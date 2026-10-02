@@ -73,7 +73,11 @@ func (m *Model) reportLines() []string {
 		// A lead line wraps under itself (#446): cut, the end of a line
 		// is lost, and the road's pointer rides the end of the profit's.
 		for i, l := range r.Lead {
-			for j, part := range wrap(l.Text, max(20, m.modalInner()-4)) {
+			text := l.Text
+			if l.At > 0 {
+				text = pointed(text, l.At, l.Act)
+			}
+			for j, part := range wrap(text, max(20, m.modalInner()-4)) {
 				lead := "    "
 				if j == 0 {
 					lead = "  " + theme.Key.Render(fmt.Sprint(i+1)) + " "
@@ -85,6 +89,12 @@ func (m *Model) reportLines() []string {
 	}
 	for _, sec := range engine.ReportSections(r) {
 		ls := sec.Lines
+		if len(sec.Points) > 0 {
+			ls = append([]string(nil), ls...)
+			for _, p := range sec.Points {
+				ls[p.Line] = pointed(ls[p.Line], p.At, p.Act)
+			}
+		}
 		switch sec.ID {
 		case "crew":
 			if line := m.crewTrouble(); line != "" {
@@ -109,6 +119,35 @@ func (m *Model) reportLines() []string {
 		body = body[:len(body)-1]
 	}
 	return body
+}
+
+// pointed is a report line with the TUI's pointer put in at at (#560):
+// the words name no screen, so each front end words its own.
+func pointed(text string, at int, a engine.Act) string {
+	if at < 0 || at > len(text) {
+		return text
+	}
+	return text[:at] + pointerWords(a) + text[at:]
+}
+
+// pointerWords is a report line's pointer as the TUI words it (#560):
+// the key a mode names on its screen, or the screen and its number key.
+func pointerWords(a engine.Act) string {
+	switch a.Mode {
+	case game.ModeWalk:
+		return " (walk away on the dashboard)"
+	case game.ModeDial:
+		return " (map, r)"
+	case game.ModeDeliver:
+		return fmt.Sprintf(" (%d, d)", screenMarket+1)
+	case game.ModeFire:
+		return " (f)"
+	}
+	s, ok := alertScreen(a.Screen)
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf(" on the %s screen (%d)", screens[s].word, s+1)
 }
 
 // reportStyles are the report's sections' colours, by

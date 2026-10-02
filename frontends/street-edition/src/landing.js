@@ -10,8 +10,14 @@ const SCREENS = { dashboard: "street", market: "market", crew: "crew", map: "str
 
 // KINDS are the kinds whose screen is not the tab that shows them: the
 // fronts and the lanes on The empire, the ways out, the plan, the DA
-// race and the favour on Ledger (#552: the law's card is there).
+// race and the favour on Ledger (#552: the law's card is there). A
+// report line's point lands as an alert of its kind (#560, report.js):
+// a front or an asset opened to you on The empire, the dial after a
+// seizure in the market's transport routes.
 const KINDS = {
+  front: "empire",
+  asset: "empire",
+  seizure: "market",
   front_shut: "empire",
   float: "empire",
   till: "empire",
@@ -57,6 +63,14 @@ export function landing(a) {
     case "front_shut":
       if (a.front) out.select = "front-" + a.front;
       break;
+    case "asset":
+      // A report line's asset for sale (#560): Properties, where assets are.
+      out.open = "properties";
+      break;
+    case "seizure":
+      // A report line's first seizure (#560): the routes and their dials.
+      out.open = "routes";
+      break;
     case "gate":
       // A front's or an asset's door on The empire (an asset's in
       // Properties); a product's or a connect's on the market.
@@ -82,7 +96,7 @@ export function landing(a) {
       out.select = "product-" + a.product;
       break;
     case "scouts":
-      out.select = "faction-" + a.faction;
+      if (a.faction) out.select = "faction-" + a.faction;
       break;
     case "retire":
     case "vanish":

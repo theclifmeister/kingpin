@@ -110,7 +110,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			who = w.Rival()
 		}
 		if ev.Read {
-			rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale; the rivals screen (8) says how old it is.", who.Leader, format.Cash(ev.Cash), format.Cash(ev.Income), format.Plural(ev.Muscle, "head"), format.Cash(ev.Wages)))
+			rep.Territory = append(rep.Territory, point(rep, "books", game.Act{Screen: game.ScreenRivals}, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale, so mind its age", who.Leader, format.Cash(ev.Cash), format.Cash(ev.Income), format.Plural(ev.Muscle, "head"), format.Cash(ev.Wages)), "."))
 		} else {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout got nowhere near %s's books. Next time is likelier.", who.Leader))
 		}
@@ -184,7 +184,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		if ev.Deal == game.DealTribute {
 			verb = "demands"
 		}
-		rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s. It stands %s: answer it on the rivals screen (8).", ev.Rival, verb, ev.Terms, format.Plural(ev.Expires-t.Day+1, "day")))
+		rep.Territory = append(rep.Territory, point(rep, "offer", game.Act{Screen: game.ScreenRivals}, fmt.Sprintf("%s %s %s. It stands %s: answer it", ev.Rival, verb, ev.Terms, format.Plural(ev.Expires-t.Day+1, "day")), "."))
 	case events.DealAccepted:
 		d := base
 		d.Rival, d.Deal = ev.Rival, ev.Deal
@@ -280,7 +280,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			// by one name comes on by another, and the report says so.
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew split: a cell of it goes its own way under %s.", p.Leader, ev.Rival))
 		}
-		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's scouts are in %s: your take there drew them. They recruit on day %d and move in on day %d unless the money dries up first. Take the corners there, or hit the scouts from the rivals screen.", ev.Rival, w.CityName(ev.City), ev.Recruit, ev.Arrive))
+		rep.Territory = append(rep.Territory, point(rep, "scouts", game.Act{Screen: game.ScreenRivals}, fmt.Sprintf("%s's scouts are in %s: your take there drew them. They recruit on day %d and move in on day %d unless the money dries up first. Take the corners there, or hit the scouts", ev.Rival, w.CityName(ev.City), ev.Recruit, ev.Arrive), "."))
 	case events.RivalRecruiting:
 		d := r.at(ev.City)
 		d.Rival = ev.Rival

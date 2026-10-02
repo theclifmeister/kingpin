@@ -207,6 +207,48 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   }
 }
 {
+  // A report line's pointer (#560): the words name no screen; a point
+  // lands as an alert of its kind, linked by the tab's name, and one the
+  // page has no tab for (the intel screen) reads whole.
+  const { landing } = await import(pathToFileURL(path.join(dist, "landing.js")));
+  const report = await import(pathToFileURL(path.join(dist, "report.js")));
+  const act = (screen, mode = "") => ({ screen, mode });
+  // [kind, act, tab, open, select, link]
+  const POINTS = [
+    ["reign", act("dashboard", "walk_away"), "ledger", "", "exit-crown", "Ledger →"],
+    ["straight", act("dashboard", "walk_away"), "ledger", "", "exit-go_straight", "Ledger →"],
+    ["idle_crew", act("map"), "street", "", "", "The streets →"],
+    ["front", act("ledger"), "empire", "", "", "The empire →"],
+    ["asset", act("ledger"), "empire", "properties", "", "The empire →"],
+    ["role", act("crew"), "crew", "", "", "Your people →"],
+    ["contract_offer", act("market"), "market", "", "", "Market →"],
+    ["contract", act("market", "deliver"), "market", "", "", "Market →"],
+    ["informant", act("crew", "fire"), "crew", "", "", "Your people →"],
+    ["seizure", act("map", "dial"), "market", "routes", "", "Market →"],
+    ["books", act("rivals"), "rivals", "", "", "Rivals →"],
+    ["offer", act("rivals"), "rivals", "", "", "Rivals →"],
+    ["scouts", act("rivals"), "rivals", "", "", "Rivals →"],
+  ];
+  for (const [kind, a, tab, open, select, link] of POINTS) {
+    const al = report.pointAlert({ line: 0, at: 1, kind, act: a });
+    const l = landing(al);
+    assert.deepEqual([l.tab, l.open, l.select, report.linkWords(l.tab)], [tab, open, select, link], `the ${kind} point lands`);
+  }
+  for (const kind of ["spy", "lure"])
+    assert.equal(report.pointAlert({ line: 0, at: 1, kind, act: act("intel") }), null, `the ${kind} point has no tab`);
+  const sec = { lines: ["a", "b"], points: [{ line: 1, at: 1, kind: "role", act: act("crew") }] };
+  assert.equal(report.pointOf(sec, 0), null);
+  assert.equal(report.pointOf(sec, 1).kind, "role");
+  assert.equal(report.pointOf({ lines: ["a"] }, 0), null, "a report from before view 22 has no points");
+  // The run's own report: every section carries its points, each on a
+  // line it has, and no line names a TUI screen or key.
+  for (const s of session.refresh().report.sections) {
+    assert.ok(Array.isArray(s.points), `${s.id} carries points`);
+    for (const p of s.points) assert.ok(p.line < s.lines.length && p.at <= s.lines[p.line].length && p.act.screen, `${s.id} point ${JSON.stringify(p)}`);
+    for (const t of s.lines) assert.doesNotMatch(t, /screen \(\d\)|\(\w+, \w\)|\(\w\)|on the dashboard/, `${s.id} names a screen`);
+  }
+}
+{
   // The alerts (#549): every kind lands on the tab that shows what it
   // names, with that thing opened or picked out; a danger is drawn as
   // one and a plan is not; the preview words what it cannot know.
@@ -1114,6 +1156,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the stage and the next product, the sale's heat, pressure in numbers and the glossary, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, and save round-trip.`,
 );
 process.exit(0);

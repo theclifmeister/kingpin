@@ -1,4 +1,4 @@
-version 21
+version 22
 .version int
 .seed uint64
 .day int
@@ -386,11 +386,19 @@ version 21
 .report.lead[].corner string
 .report.lead[].city string
 .report.lead[].house string
+.report.lead[].at int
 .report.sections []
 .report.sections[].id string
 .report.sections[].title string
 .report.sections[].lines []
 .report.sections[].lines[] string
+.report.sections[].points []
+.report.sections[].points[].line int
+.report.sections[].points[].at int
+.report.sections[].points[].kind string
+.report.sections[].points[].act.screen string
+.report.sections[].points[].act.mode string
+.report.sections[].points[].act.subject string
 .report.cash_before int
 .report.cash_after int
 .report.flow.opening.dirty int

@@ -62,7 +62,7 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 		}
 		rep.Shipments = append(rep.Shipments, line)
 		if w.Stats.Seizures == 1 {
-			rep.Shipments = append(rep.Shipments, seizureCue(ev.Dial))
+			rep.Shipments = append(rep.Shipments, seizureCue(rep, ev.Dial))
 		}
 	case events.CheckpointBought:
 		r.book(game.FlowRoutes, -ev.Cost, 0)
@@ -114,11 +114,11 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 		case game.FactRisk:
 			d.Route = ev.Name
 			r.addIntel("rivals", "IntelFalseRoute", d)
-			rep.Intel = append(rep.Intel, fmt.Sprintf("The word on %s was %s's: they had customs waiting. The intel screen (9) names them now.", ev.Name, ev.Rival))
+			rep.Intel = append(rep.Intel, point(rep, "lure", game.Act{Screen: game.ScreenIntel}, fmt.Sprintf("The word on %s was %s's: they had customs waiting. Their name is filed", ev.Name, ev.Rival), "."))
 		default:
 			d.Corner = ev.Name
 			r.addIntel("rivals", "IntelFalseStash", d)
-			rep.Intel = append(rep.Intel, fmt.Sprintf("The till on %s was empty: the word was %s's. The intel screen (9) names them now.", ev.Name, ev.Rival))
+			rep.Intel = append(rep.Intel, point(rep, "lure", game.Act{Screen: game.ScreenIntel}, fmt.Sprintf("The till on %s was empty: the word was %s's. Their name is filed", ev.Name, ev.Rival), "."))
 		}
 	default:
 		return false
@@ -129,10 +129,11 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 // seizureCue is the report's word after the run's first seizure, by the
 // dial it was sent at (#537: "a hot road wants the dial turned down"
 // on a route already on slow): at slow there is no notch lower, so it
-// names what cuts a road's risk past the dial.
-func seizureCue(dial events.Ship) string {
+// names what cuts a road's risk past the dial; above it, the line points
+// at the dial (#560).
+func seizureCue(rep *game.DayReport, dial events.Ship) string {
 	if dial == events.ShipSlow {
 		return "The first one is the cue: the route was already on slow, the lowest notch; a driver or the checkpoint on the road cuts the risk from here, and the route sends what it lost again tomorrow."
 	}
-	return "The first one is the cue: a hot road wants the dial turned down (map, r), and the route sends what it lost again tomorrow."
+	return point(rep, "seizure", game.Act{Screen: game.ScreenMap, Mode: game.ModeDial}, "The first one is the cue: a hot road wants the dial turned down", ", and the route sends what it lost again tomorrow.")
 }

@@ -187,7 +187,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.ReignBegan:
 			d := r.at(ev.City)
 			r.add("rivals", "ReignBegan", d)
-			line := fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready (walk away on the dashboard), or reign.", d.City)
+			line := point(rep, "reign", game.Act{Screen: game.ScreenDashboard, Mode: game.ModeWalk}, fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready", d.City), ", or reign.")
 			if ev.Again {
 				line = fmt.Sprintf("The city is yours again: every crew in %s is gone or paying, and the crown is open.", d.City)
 			}
@@ -205,7 +205,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.StraightOpened:
 			// Going straight (#398): the businessman's streak is in, and
 			// the ending is the player's to take.
-			rep.Tier = append([]string{fmt.Sprintf("The fronts earn %s a day against %s off the street: you could go straight (walk away on the dashboard), or play on.", format.Money(ev.Income), format.Money(ev.Street))}, rep.Tier...)
+			rep.Tier = append([]string{point(rep, "straight", game.Act{Screen: game.ScreenDashboard, Mode: game.ModeWalk}, fmt.Sprintf("The fronts earn %s a day against %s off the street: you could go straight", format.Money(ev.Income), format.Money(ev.Street)), ", or play on.")}, rep.Tier...)
 		case events.StraightLapsed:
 			rep.Tier = append([]string{"The street out-earned the fronts, or the city turned: going straight is off until the books carry you again."}, rep.Tier...)
 		}
@@ -674,7 +674,7 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 // you know them, what they are like. A greedy one's take on top of the
 // cut is theirs, by name beside it (#521: `Otis kept $755 of it and took
 // $755 more.`), never a skim.
-func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
+func lieutenantLines(w *game.World, rep *game.DayReport, ev events.LieutenantActed) []string {
 	var did []string
 	for _, b := range ev.Bought {
 		did = append(did, fmt.Sprintf("bought %d %s for %s", b.Units, w.ProductName(b.Product), format.Money(b.Cost)))
@@ -714,7 +714,7 @@ func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
 				took = append(took, fmt.Sprintf("%s on %s", k.Name, k.Corner))
 			}
 		}
-		lines = append(lines, fmt.Sprintf("  %s put idle crew to work in %s: %s. Nobody ordered it; post them yourself on the map screen (5) to keep them elsewhere.", ev.Name, ev.CityName, strings.Join(took, ", ")))
+		lines = append(lines, point(rep, "idle_crew", game.Act{Screen: game.ScreenMap}, fmt.Sprintf("  %s put idle crew to work in %s: %s. Nobody ordered it; post them yourself", ev.Name, ev.CityName, strings.Join(took, ", ")), " to keep them elsewhere."))
 	}
 	switch {
 	case ev.Extra > 0: // a greedy one's take (#521): theirs, by name, beside the cut
@@ -865,10 +865,18 @@ func enforcementLine(w *game.World, ev events.Enforcement) string {
 	return s
 }
 
+// point is a section line that points at a screen (#560): before and
+// after joined, the point between them filed on the report, so each
+// front end words its own pointer there and the words name none.
+func point(rep *game.DayReport, kind string, act game.Act, before, after string) string {
+	rep.Points = append(rep.Points, game.Point{Kind: kind, Text: before + after, At: len(before), Act: act})
+	return before + after
+}
+
 // unlockLine is the report's UNLOCKED line for a gate crossed (#148), in
 // the voice of the sections' lines and short enough for the modal at 80
 // columns: what opened, where to find it and the line it opened on.
-func unlockLine(w *game.World, ev events.Unlocked) string {
+func unlockLine(w *game.World, rep *game.DayReport, ev events.Unlocked) string {
 	switch ev.Gate {
 	case "product":
 		// The line is honest where the supplier does not sell it: the
@@ -891,9 +899,9 @@ func unlockLine(w *game.World, ev events.Unlocked) string {
 		// dirty over the till, the line the stage card and the buy
 		// dialog give; its price is on the ledger beside it.
 		if len(w.Fronts) == 0 {
-			return fmt.Sprintf("The %s is on the ledger screen (7): it washes over the till.", ev.Name)
+			return point(rep, "front", game.Act{Screen: game.ScreenLedger}, fmt.Sprintf("The %s is open to you", ev.Name), ": it washes over the till.")
 		}
-		return fmt.Sprintf("The %s is open to you on the ledger screen (7): %s.", ev.Name, format.Cash(ev.Cost))
+		return point(rep, "front", game.Act{Screen: game.ScreenLedger}, fmt.Sprintf("The %s is open to you", ev.Name), fmt.Sprintf(": %s.", format.Cash(ev.Cost)))
 	case "connect":
 		where := ""
 		if ev.City != w.Here().ID && w.Cities[ev.City] != nil {
@@ -903,11 +911,11 @@ func unlockLine(w *game.World, ev events.Unlocked) string {
 	case "role":
 		if w.Crew.OnPayroll(ev.ID) > 0 {
 			// The character started with one (the Cook's chemist, #473).
-			return fmt.Sprintf("More %s want work on the crew screen (4): %s.", strings.ToLower(ev.Name), ev.Why)
+			return point(rep, "role", game.Act{Screen: game.ScreenCrew}, fmt.Sprintf("More %s want work", strings.ToLower(ev.Name)), fmt.Sprintf(": %s.", ev.Why))
 		}
-		return fmt.Sprintf("%s want work on the crew screen (4): %s.", ev.Name, ev.Why)
+		return point(rep, "role", game.Act{Screen: game.ScreenCrew}, fmt.Sprintf("%s want work", ev.Name), fmt.Sprintf(": %s.", ev.Why))
 	case "asset":
-		return fmt.Sprintf("%s is for sale on the ledger screen (7), clean cash: %s.", ev.Name, format.Cash(ev.Cost))
+		return point(rep, "asset", game.Act{Screen: game.ScreenLedger}, fmt.Sprintf("%s is for sale", ev.Name), fmt.Sprintf(", clean cash: %s.", format.Cash(ev.Cost)))
 	}
 	return fmt.Sprintf("%s is open to you: %s.", ev.Name, ev.Why)
 }

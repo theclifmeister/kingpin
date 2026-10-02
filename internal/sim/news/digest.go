@@ -355,7 +355,7 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow, low bool) (game.Line, 
 	default:
 		text = fmt.Sprintf("Last night's sales less costs came to %s against the week's %s a night.", signedCash(net), week)
 	}
-	act := game.Act{Screen: game.ScreenLedger}
+	act, at := game.Act{Screen: game.ScreenLedger}, 0
 	if low && swing < 0 {
 		// A night you lay low sold nothing on purpose (#522: "Last
 		// night made -$100 … the corners here have a ceiling" after a
@@ -363,8 +363,10 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow, low bool) (game.Line, 
 		text = fmt.Sprintf("You lay low last night: sales less costs came to %s against the week's %s a night.", signedCash(net), week)
 	} else if swing < 0 {
 		if road := s.roadHint(w); road != "" {
+			// The road's pointer (#560) goes before the full stop: the
+			// TUI's " on the map screen (5)", the web's link.
 			text += " " + road
-			act = game.Act{Screen: game.ScreenMap}
+			act, at = game.Act{Screen: game.ScreenMap}, len(text)-1
 			if w.Progression.Ceiling == 0 {
 				// The first night the ceiling is said (#476): the port
 				// alert reads it, so it stops a fast-forward once and
@@ -373,7 +375,7 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow, low bool) (game.Line, 
 			}
 		}
 	}
-	return game.Line{Text: text, Act: act}, math.Min(math.Abs(swing), cfg.SwingCap)
+	return game.Line{Text: text, Act: act, At: at}, math.Min(math.Abs(swing), cfg.SwingCap)
 }
 
 // roadHint is the falling profit line's pointer to the road (#446): a
@@ -397,7 +399,7 @@ func (s *Sim) roadHint(w *game.World) string {
 	if far == w.Home().ID {
 		far = w.CityOrder[0]
 	}
-	return fmt.Sprintf("The corners here have a ceiling: the road to %s is on the map (5).", w.CityName(far))
+	return fmt.Sprintf("The corners here have a ceiling: the next step is the road to %s.", w.CityName(far))
 }
 
 // laidLow reports whether the player lay low tonight (#522).
