@@ -1020,10 +1020,100 @@ if (!session.view.over) {
   reloaded.importSave(s.exportSave());
   assert.equal(reloaded.refresh().stage, undefined, "a reload after it is seen does not show it again");
 }
+// The sale's heat, pressure in numbers and the glossary (#575): a run of
+// its own (seed 41, four hired, the stash sold aggressive each night)
+// previews every sale before it is placed, and the estimate is the
+// TUI's (ui/dialogs.go estHeat: the sale's heat on the units asked plus
+// the sloppy runners' on the units expected to move) until a night
+// where the runners add theirs; the risk panel's pressure note and the
+// glossary are filled off the file.
+{
+  const routine = await import(pathToFileURL(path.join(dist, "routine.js")));
+  const law = await import(pathToFileURL(path.join(dist, "law.js")));
+  const { glossary, WORDS } = await import(pathToFileURL(path.join(dist, "glossary.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  const s = new Session(globalThis.kingpin),
+    q = (m, ...p) => s.call(m, ...p);
+  s.newRun(41);
+  let previewed = 0,
+    sloppy = 0;
+  for (let i = 0; i < 30 && !s.view.over && !(previewed > 6 && sloppy); i++) {
+    if (s.view.card) s.choose(0);
+    let v = s.refresh();
+    for (const m of v.pool)
+      if (v.crew.length < 4 && m.fee < v.you.dirty_cash * 0.3) {
+        s.hire(m.id);
+        v = s.refresh();
+      }
+    // The runners go on the corners nobody works, as the page posts them.
+    for (const m of v.crew.filter((x) => x.role === "runner")) {
+      const corners = v.cities.find((c) => c.id === v.you.city).corners;
+      if (corners.some((c) => c.runner === m.id)) continue;
+      const open = corners.find((c) => c.owner !== "rival" && !c.runner);
+      if (open && q("post", open.id, m.id) !== null) v = s.refresh();
+    }
+    const supplier = v.connects.find((x) => x.open && !x.wholesale && x.city === v.you.city);
+    const n = supplier ? s.maxBuy(supplier.id, "weed").max : 0;
+    if (n) {
+      s.buy(supplier.id, "weed", n);
+      v = s.refresh();
+      const here = v.cities.find((c) => c.id === v.you.city),
+        p = here.products.find((x) => x.id === "weed");
+      for (const dial of ["quiet", "normal", "aggressive"]) {
+        const r = routine.salePreview(v, q, here.id, "weed", n, dial),
+          est = Math.min(n, q("rules.market.capacity", here.id, "weed", dial)),
+          heat = q("rules.heat.sale_heat", here.id, "weed", n, dial) + q("rules.heat.sloppy_heat", here.id, est),
+          unit = p.price * q("rules.market.dial", dial).Price;
+        assert.equal(r.est, est, "the units expected");
+        assert.equal(r.heat, heat, "the estimate is the TUI's estHeat");
+        assert.equal(r.rows[0][1], `~${est} of ${n} at ~$${unit.toFixed(2)} = ~$${Math.trunc(est * unit).toLocaleString("en-US")}`, "the expect row");
+        assert.equal(r.rows[1][1], `+${heat.toFixed(1)}`, "the heat row");
+        assert.equal(r.rows[1][2], routine.heatTone(here.heat + heat * 4), "the heat row's tone");
+        assert.equal(r.rows[2][1], routine.DIAL_BLURBS[dial], "the dial's blurb");
+        previewed++;
+      }
+      if (q("rules.heat.sloppy_heat", here.id, 100) > 0) sloppy++;
+      s.sell(here.id, "weed", n, "aggressive");
+    }
+    s.endDay();
+    s.take();
+  }
+  assert.ok(previewed > 6, "the run previews its sales");
+  assert.ok(sloppy, "the run's runners add their premium to an estimate");
+  const v = s.refresh(),
+    here = v.cities.find((c) => c.id === v.you.city);
+  // Nowhere worked, nothing sells: the dialog says so.
+  const none = routine.salePreview({ ...v, cities: v.cities.map((c) => ({ ...c, worked: 0 })) }, q, here.id, "weed", 5, "normal");
+  assert.equal(none.rows.at(-1)[1], `You work no corner in ${here.name}: nothing will sell. Post somebody on the street view.`, "no corner worked");
+  // Pressure in numbers: the cuts at the city's pressure, the fade, and
+  // the goodwill's bite where some is bought.
+  const tun = q("rules.law.tuning"),
+    fx = engineInfo.pressure,
+    at = (pressure, goodwill) => ({ ...v, cities: v.cities.map((c) => (c.id === here.id ? { ...c, pressure, goodwill } : c)) });
+  assert.ok(fx.thresholdCut > 0 && fx.capCut > 0, "law.toml's [effects] reach the page");
+  assert.equal(
+    law.pressureNote(at(60, 0), q, here.id, fx),
+    `Lowers the police lines ${Math.round(fx.thresholdCut * 60)}% and a patrol's cap ${Math.round(fx.capCut * 60)}%; fades to ${Math.round(tun.Baseline)}.`,
+    "the pressure note",
+  );
+  assert.match(law.pressureNote(at(60, 40), q, here.id, fx), new RegExp(` Goodwill takes ${((tun.GoodwillCut * 40) / 100).toFixed(1)} a day\\.$`), "the goodwill's bite");
+  assert.match(law.pressureNote(at(250, 0), q, here.id, fx), new RegExp(`^Lowers the police lines ${Math.round(fx.thresholdCut * 100)}% `), "pressure counts to 100");
+  assert.ok(law.pressureNote(v, q, here.id, fx).startsWith("Lowers the police lines "), "the live city's note");
+  // The glossary: the TUI's terms, the numbers filled off the file.
+  const g = glossary(engineInfo.glossary),
+    line = (t) => g.find(([term]) => term === t)[1];
+  assert.equal(g.length, WORDS.length);
+  for (const [term, l] of g) assert.ok(term && l && !/[{}]/.test(l), "a filled glossary line: " + term);
+  assert.equal(line("quiet day"), `heat under ${engineInfo.glossary.retireHeat}; no strike, push, war, bust, buyer's order owed`);
+  assert.equal(line("sting"), `a rung: stock and cash; 1 page if you sold, ${engineInfo.glossary.hitPages} on a named hit`);
+  assert.equal(line("raid"), "a big rung: much of the stock and cash; 2 pages if you sold");
+  assert.equal(line("betrayed"), `a lieutenant turns on ${Math.round(engineInfo.glossary.betrayShare * 100)}% of your corners, ${engineInfo.glossary.betrayCorners}+: that night`);
+  assert.equal(line("street night"), `a night's dealing; going straight: fronts over its last ${engineInfo.streetWindow}`);
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the stage and the next product, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the stage and the next product, the sale's heat, pressure in numbers and the glossary, and save round-trip.`,
 );
 process.exit(0);

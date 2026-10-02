@@ -15,6 +15,7 @@ import * as property from "./property.js?v=__BUILD_REVISION__";
 import * as market from "./market.js?v=__BUILD_REVISION__";
 import * as roads from "./routes.js?v=__BUILD_REVISION__";
 import * as stage from "./stage.js?v=__BUILD_REVISION__";
+import { glossary } from "./glossary.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -808,15 +809,25 @@ async function action(a, id) {
       case "buy":
         buyDialog(id);
         break;
-      case "sell": {
+      case "sell":
+        sellDialog(id);
+        break;
+      case "sell-go": {
         // Sized for what lands tonight (#503): that comes after the
         // sales, so only a standing order counts on it.
         const here = city().id,
-          n = integer("#qty-" + id),
+          { n, dial } = sellChoice(),
           most = routine.sellable(v, query, here, id),
-          land = routine.landing(v, here, id),
-          dial = $("#sale-dial").value;
-        if (n > most && land > 0) throw Error(`Only ${most} sell tonight: the ${land} landing come after the sales; a standing order (Routine) counts them from tomorrow night.`);
+          land = routine.landing(v, here, id);
+        if (!(n > 0)) {
+          $("#sell-error").textContent = "Enter a whole number above zero.";
+          break;
+        }
+        if (n > most && land > 0) {
+          $("#sell-error").textContent = `Only ${most} sell tonight: the ${land} landing come after the sales; a standing order (Routine) counts them from tomorrow night.`;
+          break;
+        }
+        saleDial = dial;
         act("place_sell", [here, id, n, dial], `Queued ${n} ${routine.productName(v, id)} in ${city().name}, ${dial}. It sells at the end of the day.`);
         break;
       }
@@ -1149,7 +1160,9 @@ $("#lie-low").onclick = () => action("lie-low");
 $("#save-menu").onclick = () => v && saveMenu();
 $("#help").onclick = () =>
   modal(
-    `<div class="eyebrow">WELCOME TO THE NEIGHBORHOOD</div><h2>Start small. Think ahead.</h2><h3>1. Stock the shelf</h3><p>Open Market. Buy a few units with dirty cash. Keep enough money for wages.</p><h3>2. Plan your night</h3><p>Queue sales, hire crew and assign corners. Most orders resolve when you end the day. Quiet selling draws less attention.</p><h3>3. Watch the file</h3><p>Heat and evidence are different threats. The risk panel always shows your current indictment threshold. A quiet day pauses street sales, but it does not erase existing evidence.</p><h3>4. Choose your ambition</h3><p>Grow businesses, control the city, or move money offshore and leave. The Ledger explains the endings.</p><div class="tip-box">Automatic saves stay on this device. Your story → Export save creates a portable checkpoint.</div>`,
+    `<div class="eyebrow">WELCOME TO THE NEIGHBORHOOD</div><h2>Start small. Think ahead.</h2><h3>1. Stock the shelf</h3><p>Open Market. Buy a few units with dirty cash. Keep enough money for wages.</p><h3>2. Plan your night</h3><p>Queue sales, hire crew and assign corners. Most orders resolve when you end the day. Quiet selling draws less attention.</p><h3>3. Watch the file</h3><p>Heat and evidence are different threats. The risk panel always shows your current indictment threshold. A quiet day pauses street sales, but it does not erase existing evidence.</p><h3>4. Choose your ambition</h3><p>Grow businesses, control the city, or move money offshore and leave. The Ledger explains the endings.</p><div class="tip-box">Automatic saves stay on this device. Your story → Export save creates a portable checkpoint.</div><h3 id="words">Words</h3><dl class="glossary">${glossary(engineInfo.glossary)
+      .map(([term, line]) => `<div><dt>${esc(term)}</dt><dd>${esc(line)}</dd></div>`)
+      .join("")}</dl>`,
   );
 $("#sound").onclick = () => {
   sound = !sound;
@@ -1762,10 +1775,12 @@ const rowsHTML = (rows) => rows.map(([label, text, t]) => `<p class="law-row">${
 const parasHTML = (lines) => lines.map(([text, t]) => `<p class="${tone(t)}">${esc(text)}</p>`).join("");
 // lawPanelHTML is the risk panel's LAW lines: the chief, the DA, the
 // pressure here and elsewhere; the favour's call while the chief owes.
+// The pressure line carries what the pressure does in numbers under it
+// (law.pressureNote, the TUI's police section).
 function lawPanelHTML() {
   return `<div class="law-lines">${law
     .lawLines(v)
-    .map((l) => `<p class="${tone(l.tone)}">${esc(l.text)}${l.owes ? ` ${btn("Call in the favour", "favour", "", "small", !!v.over)}` : ""}</p>`)
+    .map((l, i) => `<p class="${tone(l.tone)}">${esc(l.text)}${l.owes ? ` ${btn("Call in the favour", "favour", "", "small", !!v.over)}` : ""}</p>${i === 2 ? `<p class="subtle-text" id="pressure-note">${esc(law.pressureNote(v, query, v.you.city, engineInfo.pressure))}</p>` : ""}`)
     .join("")}</div>`;
 }
 // lawSectionHTML is the Ledger's law: the chief and the DA, the DA
@@ -2274,6 +2289,36 @@ function buyDialog(id) {
   );
   buyPreview(id);
 }
+// sellDialog is the TUI's sale (ui/dialogs.go): the quantity, the dial
+// and, as either moves, what is expected to sell and the heat the order
+// adds (routine.salePreview), before it is queued.
+function sellDialog(id) {
+  const here = city().id,
+    most = routine.sellable(v, query, here, id),
+    asked = wholeOf("#qty-" + id),
+    qty = asked && asked < most ? asked : most;
+  modal(
+    `<div class="eyebrow">TONIGHT'S SALE</div><h2>Sell ${esc(routine.productName(v, id))}</h2><p class="subtle-text">${most} to sell in ${esc(city().name)} tonight.</p><label>Quantity<input id="sell-qty" data-input="sell" type="number" min="1" max="${most}" value="${qty}" aria-label="Units to sell"></label>${["quiet", "normal", "aggressive"]
+      .map((d) => `<label class="choice"><span><input type="radio" name="sell-dial" value="${d}" data-input="sell" ${d === saleDial ? "checked" : ""}> <b>${d}</b></span></label>`)
+      .join("")}<div id="sell-preview"></div><p class="danger-text" id="sell-error"></p><div class="card-actions">${btn("Sell", "sell-go", id, "primary", !!v.over)}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  sellPreview(id);
+}
+// wholeOf is a field's whole number above zero, or 0: a preview reads a
+// half-typed field without throwing.
+function wholeOf(sel) {
+  const x = Number($(sel)?.value);
+  return Number.isSafeInteger(x) && x > 0 ? x : 0;
+}
+function sellChoice() {
+  return { n: wholeOf("#sell-qty"), dial: $('input[name="sell-dial"]:checked')?.value || "normal" };
+}
+function sellPreview(id) {
+  if (!$("#sell-preview") || !id) return;
+  const { n, dial } = sellChoice(),
+    r = routine.salePreview(v, query, city().id, id, n, dial);
+  $("#sell-preview").innerHTML = rowsHTML(r.rows);
+}
 function buyChoice(id) {
   const c = v.connects.find((x) => x.id === $('input[name="buy-connect"]:checked')?.value) || market.sellers(v, id)[0],
     onCredit = $('input[name="buy-pay"]:checked')?.value === "credit",
@@ -2348,10 +2393,12 @@ function driverDialog(rid) {
 document.addEventListener("input", (e) => {
   const kind = e.target.dataset?.input;
   if (kind === "buy") buyPreview(e.target.closest("dialog")?.querySelector('[data-action="buy-go"]')?.dataset.id);
+  else if (kind === "sell") sellPreview(e.target.closest("dialog")?.querySelector('[data-action="sell-go"]')?.dataset.id);
   else if (kind === "target") targetPreview();
 });
 document.addEventListener("change", (e) => {
   if (e.target.dataset?.input === "buy") buyPreview(e.target.closest("dialog")?.querySelector('[data-action="buy-go"]')?.dataset.id);
+  else if (e.target.dataset?.input === "sell") sellPreview(e.target.closest("dialog")?.querySelector('[data-action="sell-go"]')?.dataset.id);
   else if (e.target.dataset?.input === "target") targetPreview();
   else if (e.target.dataset?.change === "target-product") targetDialog(e.target.dataset.route, e.target.value);
 });

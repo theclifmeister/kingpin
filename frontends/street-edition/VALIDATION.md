@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576 and #578. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578 and #575. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -31,7 +31,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Law | Tip confirm: page odds, police attention (`ui/books.go`) | done (#552) |
 | Law | Bribes, checkpoints, payoffs, pay a cop (`ui/bribes.go`, `ui/intel.go`) | done (#552) |
 | Law | Lie-low words and the queued-handoff warning | done (#552) |
-| Law | Sale heat estimate, pressure in numbers, the glossary | open #575 (sloppy heat done, #551) |
+| Law | Sale heat estimate, pressure in numbers, the glossary | done (#575: the sale dialog's expect and heat rows with the dial's blurb, the TUI's `estHeat`; what the pressure cuts and fades to, and the goodwill's bite, under the risk panel's pressure line; the WORDS in the help overlay, held to `ui/keys.go` by `TestStreetGlossary`; sloppy heat #551) |
 | Crew | Investigate with cost, odds, confirm (`ui/crew.go`) | done (#551) |
 | Crew | SNITCH mark; fire confirm with cost, walk and war lines | done (#551) |
 | Crew | Loyalty lines on the member; betrayal words (`ui/lieutenant.go`) | done (#551) |
@@ -90,6 +90,17 @@ Checks:
 - Chromium (Playwright headless, 1280×1600 and 390×900) on a `delegated` seed-4 save at day 120 (Cal runs Eastside with five contracts; padded to 14 on a cap of 18 with Cal's 8 slots; Shorty captain of Bayport at $20,000): the CREW block reads `capacity · 1796 in Bayport`, `550 yours + 1246 crew`; the pool `new faces in 2 days`; Cal's card `Keeps 111 Weed · 43 Pills · 21 Coke · 31 Heroin · 2 Meth` and `Kin: Flaco (cousin)`; Wink in the pool `Kin: Flaco (partner) · came with the kin: fee at the discount`; the legend `♦ has kin on the payroll or looking for work`. Cal's picker warns `Off the city, the roster is 14 of 10: nobody is let go; you hire under 10.` with rows `Eastside · 2 corners · 682 units · runs: theirs now`; standing him down asks `Stand Cal down?` first and answers `Cal runs nothing now. The crew they posted stay where they are. The roster is 14 of 10: nobody is let go, and nobody is hired until it is under 10.` Cal's card has no Captaincy button; Flaco's picker refuses `Can't make Flaco captain yet: it takes loyalty 55 and 30 days on the payroll, at work.`; Shorty's opens on `Bayport · 3 corners · captain: theirs now` at `$20,000 a night`, offers `$10,000 a night | $20,000 a night | $5,000 a night | nothing: no pay-offs`, and answers `Shorty is captain of Bayport from tonight: $10,000 a night for pay-offs, keeps 2%.` No page errors; no horizontal scroll at 390.
 
 Not covered: the TUI's key hints in the refusals (`Give them one with l` reads `with Run a city`).
+
+# The sale's heat, pressure in numbers and the glossary (#575, no version moved)
+
+- **The sale** (`routine.salePreview`, the TUI's `sellDialRows`): Sell opens a dialog with the quantity and the dial, and as either moves it shows `EXPECT ~5 of 5 at ~$22.00 = ~$110` and `HEAT +0.5` toned as `heatStyle` tones the city's heat plus four times the estimate, the dial's blurb, and "You work no corner in …" where none is worked. The heat is `rules.heat.sale_heat` on the units asked plus `rules.heat.sloppy_heat` on the units expected to move: the TUI's `estHeat`. The dial picked becomes the page's sales approach.
+- **Pressure** (`law.pressureNote`, the TUI's police section): under the risk panel's pressure line, "Lowers the police lines 6% and a patrol's cap 15%; fades to 10.", and "Goodwill takes 1.2 a day." at 40 goodwill. The cuts at pressure 100 are law.toml's `[effects]`, which no rule serves, so they reach the page through `engine-info.js` (`pressure`), as #551's numbers do; the fade and the goodwill are `rules.law.tuning`'s.
+- **The glossary** (`glossary.js`): the help overlay (`?`) ends with WORDS, the TUI's terms in its order, the numbers filled off the file (`engine-info.js` `glossary`). Two terms name the web's button where the TUI names a key (goodwill, lieutenant); the TUI's pane, strip, scene, daily and profile are left out. `TestStreetGlossary` (`cmd/kingpin-web/parity_test.go`) holds the list to `ui.Glossary`, term by term.
+
+Checks:
+
+- `smoke.mjs`: a run of its own (seed 41, four hired and posted, the stash sold aggressive) previews every dial of every night's sale and holds the units, the heat (to the rules' sum), the rows' words and tone to the TUI's, until runners on corners add their premium; the no-corner warning; the pressure note at 60 with and without goodwill and past 100; every glossary line filled, and the quiet day, sting, raid, betrayal and street night lines against the file.
+- Chromium (Playwright, desktop 1280×900 and mobile 390×844, no console errors, no sideways scroll): a fresh seed-41 run stocks weed, opens Sell, moves the dial and the quantity and reads the engine's heat in the dialog, queues the sale into the view's orders; the risk panel carries the pressure note; the help overlay lists 62 terms.
 
 # The dashboard's facts (#574, no version moved)
 

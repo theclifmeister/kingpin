@@ -233,3 +233,73 @@ func alertParity(t *testing.T, fixture []parityAlert, web []string) {
 		}
 	}
 }
+
+// The glossary's parity (#575): Street Edition's glossary.js WORDS
+// against the TUI's (ui.Glossary), term by term and in order, bar the
+// terms glossaryWeb names. So a term the TUI gains or rewords reaches
+// the web, or is written down here with why.
+
+// glossaryWeb are the TUI's terms the web words its own way, by the
+// TUI's line it was ported from, or leaves out (""), each with why. A
+// reworded term fails when the TUI's line moves, so the web's is looked
+// at again.
+var glossaryWeb = map[string]string{
+	// A TUI key in the line: the web names its button and tab (ruled
+	// for #560: each front end words its own pointer).
+	"goodwill":   "bought with clean cash (f on the ledger): wears pressure down",
+	"lieutenant": "runs a city for a cut: sells it, stocks it; l on the crew",
+	// The TUI's frame and its animations: the web has neither.
+	"pane":  "",
+	"strip": "",
+	"scene": "",
+	// The daily and the profile: ruled out of scope for the web
+	// (2026-10-01).
+	"daily":   "",
+	"profile": "",
+}
+
+var glossaryEntry = regexp.MustCompile(`(?m)^\s*\["((?:[^"\\]|\\.)*)", "((?:[^"\\]|\\.)*)"\],$`)
+
+func TestStreetGlossary(t *testing.T) {
+	t.Parallel()
+	src, err := os.ReadFile("../../frontends/street-edition/src/glossary.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var web [][2]string
+	for _, m := range glossaryEntry.FindAllStringSubmatch(string(src), -1) {
+		web = append(web, [2]string{m[1], m[2]})
+	}
+	var want [][2]string
+	for _, w := range ui.Glossary() {
+		ported, named := glossaryWeb[w[0]]
+		switch {
+		case !named:
+			want = append(want, w)
+		case ported == "":
+			// Left out.
+		case ported != w[1]:
+			t.Errorf("the TUI's %q now reads %q, not %q: look at the web's line again and move glossaryWeb with it", w[0], w[1], ported)
+			want = append(want, [2]string{w[0], ""})
+		default:
+			want = append(want, [2]string{w[0], ""})
+		}
+	}
+	for term := range glossaryWeb {
+		if !slices.ContainsFunc(ui.Glossary(), func(w [2]string) bool { return w[0] == term }) {
+			t.Errorf("glossaryWeb names %q, which the TUI no longer has: take it off", term)
+		}
+	}
+	if len(web) != len(want) {
+		t.Errorf("glossary.js has %d terms and the TUI %d the web says", len(web), len(want))
+	}
+	for i := range min(len(web), len(want)) {
+		w, g := want[i], web[i]
+		switch {
+		case g[0] != w[0]:
+			t.Errorf("glossary.js term %d is %q where the TUI has %q", i, g[0], w[0])
+		case w[1] != "" && g[1] != w[1]:
+			t.Errorf("glossary.js says %q is %q; the TUI, %q", w[0], g[1], w[1])
+		}
+	}
+}

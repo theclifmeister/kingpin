@@ -8,7 +8,7 @@
 // query (session.call), and returns words, rows or numbers: it touches
 // no DOM, so smoke.mjs checks them on a live run.
 
-import { upkeepTonight, upkeepWarning } from "./wash.js?v=__BUILD_REVISION__";
+import { fixed, upkeepTonight, upkeepWarning } from "./wash.js?v=__BUILD_REVISION__";
 
 const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
   plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
@@ -99,6 +99,26 @@ export function patrolCapLine(v) {
   if (!(l.sell_cap_days > 0)) return "";
   const who = l.sell_cap_city ? "Patrols in " + cityName(v, l.sell_cap_city) : "Patrols";
   return `${who}: sales capped at ${pct(l.sell_cap)} of demand for ${plural(l.sell_cap_days, "day")} more.`;
+}
+
+// pressureNote is what a city's pressure does, in numbers (the TUI's
+// police section, ui/police.go): how far it lowers the police lines and
+// a patrol's cap, what it fades to, and what the goodwill bought there
+// takes off a day. fx is law.toml's [effects] cuts at pressure 100
+// (engineInfo.pressure, build.py: no rule serves them), each scaled
+// linearly as content.Cut scales it; the fade and the goodwill are
+// rules.law.tuning's. Percents as format.Pct writes them (fixed: Go's
+// even tie).
+export function pressureNote(v, q, cityId, fx) {
+  const c = cityOf(v, cityId);
+  if (!c) return "";
+  const tun = q("rules.law.tuning"),
+    // 1 - content.Cut(pressure, full), in the same float steps.
+    cut = (full) => 1 - (1 - (full || 0) * Math.max(0, Math.min(1, c.pressure / 100))),
+    per = (x) => fixed(x * 100, 0) + "%";
+  let note = `Lowers the police lines ${per(cut(fx?.thresholdCut))} and a patrol's cap ${per(cut(fx?.capCut))}; fades to ${fixed(tun.Baseline, 0)}.`;
+  if (c.goodwill > 0) note += ` Goodwill takes ${fixed((tun.GoodwillCut * c.goodwill) / 100, 1)} a day.`;
+  return note;
 }
 
 // raceShown is whether there is a DA RACE to show (raceShown): the

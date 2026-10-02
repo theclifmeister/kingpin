@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"slices"
+
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -20,3 +22,8 @@ func AlertWords(cfg *content.Config, s *engine.Session, alerts []engine.Alert) [
 	}
 	return out
 }
+
+// Glossary is the help modal's WORDS, each [term, line] as words has
+// it, the file's numbers still placeholders: cmd/kingpin-web's parity
+// test (#575) holds Street Edition's glossary.js to it term by term.
+func Glossary() [][2]string { return slices.Clone(words) }

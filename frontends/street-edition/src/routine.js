@@ -9,6 +9,8 @@
 // (ui/presets.go) and the upgrades' prerequisites by name are here too:
 // presets are bundles of the routine's dials.
 
+import { fixed } from "./wash.js?v=__BUILD_REVISION__";
+
 const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
   price = (n) => "$" + (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
   plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
@@ -256,6 +258,45 @@ export function estimate(v, q, o, isStanding) {
     take: Math.floor(units * p.price * q("rules.market.dial", o.dial).Price * (1 - cut)),
     heat: q("rules.heat.sale_heat", o.city, o.product, qty, o.dial) + q("rules.heat.sloppy_heat", o.city, units),
   };
+}
+
+// DIAL_BLURBS are what each notch of the sell dial does (ui/dial.go
+// dialBlurb).
+export const DIAL_BLURBS = {
+  quiet: "half the volume, small discount, barely a ripple",
+  normal: "sell to demand at market price",
+  aggressive: "push past demand, premium first, then the crash",
+};
+
+// heatTone is the TUI's heatStyle as a tone: bold red from 75, red from
+// 55, amber from 30, green under.
+export function heatTone(h) {
+  return h >= 75 ? "danger" : h >= 55 ? "bad" : h >= 30 ? "warn" : "good";
+}
+
+// salePreview is the sale dialog's dial step (ui/dialogs.go
+// sellDialRows): what qty units at a dial are expected to sell and for
+// how much, and the heat the order adds (estHeat: the sale's heat off
+// rules.heat.sale_heat on the units asked, and the sloppy runners'
+// premium on the units expected to move), toned by where it leaves the
+// city (heatStyle of the heat plus four times the estimate). `est`,
+// `heat` and `total` are the numbers; `rows` [label, text, tone] the
+// words, with the blurb, and the warning where no corner is worked.
+export function salePreview(v, q, city, id, qty, dial) {
+  const p = productIn(v, city, id),
+    c = v.cities.find((x) => x.id === city);
+  if (!p || !c) return { est: 0, heat: 0, total: 0, rows: [] };
+  const unit = p.price * q("rules.market.dial", dial).Price,
+    est = Math.min(qty, q("rules.market.capacity", city, id, dial)),
+    total = Math.trunc(est * unit),
+    heat = q("rules.heat.sale_heat", city, id, qty, dial) + q("rules.heat.sloppy_heat", city, est),
+    rows = [
+      ["expect", `~${est} of ${qty} at ~${unit < 1000 ? "$" + fixed(unit, 2) : money(unit)} = ~${money(total)}`, "gold"],
+      ["heat", `+${fixed(heat, 1)}`, heatTone(c.heat + heat * 4)],
+      ["", DIAL_BLURBS[dial] || DIAL_BLURBS.normal, "subtle"],
+    ];
+  if (!c.worked) rows.push(["", `You work no corner in ${c.name}: nothing will sell. Post somebody on the street view.`, "bad"]);
+  return { est, heat, total, rows };
 }
 
 // cart is the day's shopping, read off the view (the TUI's
