@@ -42,8 +42,10 @@ import (
 // street's quality; and the day
 // the feds stop watching the skies. 21 (#576) what Street Edition's
 // crew tab reads: a member's kin, the day the pool last turned over,
-// your carry and what each city holds.
-const ViewVersion = 21
+// your carry and what each city holds. 22 (#560) where a report line
+// points: a section's points and a lead line's at, so the words name no
+// screen and each front end words its own pointer.
+const ViewVersion = 22
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -702,21 +704,51 @@ type LeadView struct {
 	Corner string `json:"corner,omitempty"`
 	City   string `json:"city,omitempty"`
 	House  string `json:"house,omitempty"`
+	At     int    `json:"at,omitempty"` // where in Text a front end words its pointer to Act (#560), as a section line's PointView; 0 for none
 }
 
 // ReportSectionView is one section of the report: its id
-// (ReportSection's), its heading and its lines.
+// (ReportSection's), its heading, its lines and where they point (#560).
 type ReportSectionView struct {
-	ID    string   `json:"id"`
-	Title string   `json:"title"`
-	Lines []string `json:"lines"`
+	ID     string      `json:"id"`
+	Title  string      `json:"title"`
+	Lines  []string    `json:"lines"`
+	Points []PointView `json:"points"`
 }
 
 // ReportSection is one section of the morning report.
 type ReportSection struct {
-	ID    string // incident, tier, plan, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news
-	Title string // the heading: INCIDENT, TIER, ...
-	Lines []string
+	ID     string // incident, tier, plan, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news
+	Title  string // the heading: INCIDENT, TIER, ...
+	Lines  []string
+	Points []PointView // the lines that point at a screen (#560), in line order
+}
+
+// PointView is where a report line points (#560, game.Point): the
+// line's index in its section, the byte in it where a front end words
+// its pointer, what the line is about and the act that answers it. The
+// words name no screen and no key: the TUI puts " on the ledger screen
+// (7)" at At, Street Edition a link to the tab, and a front end with
+// neither reads the line whole.
+type PointView struct {
+	Line int    `json:"line"`
+	At   int    `json:"at"`
+	Kind string `json:"kind"`
+	Act  Act    `json:"act"`
+}
+
+// pointsOf is the points of a section's lines, by each line's text.
+func pointsOf(r *game.DayReport, lines []string) []PointView {
+	var out []PointView
+	for i, l := range lines {
+		for _, p := range r.Points {
+			if p.Text == l {
+				out = append(out, PointView{Line: i, At: p.At, Kind: p.Kind, Act: p.Act})
+				break
+			}
+		}
+	}
+	return out
 }
 
 // ReportSections is the report's sections in the one order every front
@@ -727,23 +759,27 @@ type ReportSection struct {
 // there, empty or not: a front end skips an empty one, or adds lines of
 // its own (the TUI's crew trouble, the cash flow's waterfall).
 func ReportSections(r *game.DayReport) []ReportSection {
-	return []ReportSection{
-		{"incident", "INCIDENT", r.Incident}, // the world's incident this morning (#44)
-		{"tier", "TIER", r.Tier},             // the tier entered this morning (#147)
-		{"plan", "PLAN", nil},                // the plan pinned (#347): the front end's, off the view's ambitions; the report holds none
-		{"unlocked", "UNLOCKED", r.Unlocked}, // a gate crossed (#148)
-		{"prices", "PRICES", r.Prices},
-		{"sales", "SALES", r.Sales},
-		{"shipments", "SHIPMENTS", r.Shipments},
-		{"heat", "HEAT", r.Heat},
-		{"law", "LAW", r.Law},
-		{"intel", "INTEL", r.Intel}, // what was learnt tonight (#45)
-		{"crew", "CREW", r.Crew},
-		{"territory", "TERRITORY", r.Territory},
-		{"money", "MONEY", r.Money},
-		{"upgrades", "UPGRADES", r.Upgrades},
-		{"news", "NEWS", r.News},
+	secs := []ReportSection{
+		{ID: "incident", Title: "INCIDENT", Lines: r.Incident}, // the world's incident this morning (#44)
+		{ID: "tier", Title: "TIER", Lines: r.Tier},             // the tier entered this morning (#147)
+		{ID: "plan", Title: "PLAN"},                            // the plan pinned (#347): the front end's, off the view's ambitions; the report holds none
+		{ID: "unlocked", Title: "UNLOCKED", Lines: r.Unlocked}, // a gate crossed (#148)
+		{ID: "prices", Title: "PRICES", Lines: r.Prices},
+		{ID: "sales", Title: "SALES", Lines: r.Sales},
+		{ID: "shipments", Title: "SHIPMENTS", Lines: r.Shipments},
+		{ID: "heat", Title: "HEAT", Lines: r.Heat},
+		{ID: "law", Title: "LAW", Lines: r.Law},
+		{ID: "intel", Title: "INTEL", Lines: r.Intel}, // what was learnt tonight (#45)
+		{ID: "crew", Title: "CREW", Lines: r.Crew},
+		{ID: "territory", Title: "TERRITORY", Lines: r.Territory},
+		{ID: "money", Title: "MONEY", Lines: r.Money},
+		{ID: "upgrades", Title: "UPGRADES", Lines: r.Upgrades},
+		{ID: "news", Title: "NEWS", Lines: r.News},
 	}
+	for i := range secs {
+		secs[i].Points = pointsOf(r, secs[i].Lines)
+	}
+	return secs
 }
 
 // LeadAlert is a lead line as the alert its act opens (#354): the act
@@ -1168,10 +1204,10 @@ func flowView(f game.CashFlow, bigShare float64) FlowView {
 func reportView(r *game.DayReport, bigShare float64) ReportView {
 	v := ReportView{Day: r.Day, Flow: flowView(r.Flow, bigShare), CashBefore: r.CashBefore, CashAfter: r.CashAfter}
 	for _, l := range r.Lead {
-		v.Lead = append(v.Lead, LeadView{Kind: l.Kind, Text: l.Text, Act: l.Act, Member: l.Member, Corner: l.Corner, City: l.City, House: l.House})
+		v.Lead = append(v.Lead, LeadView{Kind: l.Kind, Text: l.Text, Act: l.Act, Member: l.Member, Corner: l.Corner, City: l.City, House: l.House, At: l.At})
 	}
 	for _, sec := range ReportSections(r) {
-		v.Sections = append(v.Sections, ReportSectionView{ID: sec.ID, Title: sec.Title, Lines: lines(sec.Lines)})
+		v.Sections = append(v.Sections, ReportSectionView{ID: sec.ID, Title: sec.Title, Lines: lines(sec.Lines), Points: sec.Points})
 	}
 	return v
 }
