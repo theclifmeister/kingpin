@@ -1561,3 +1561,21 @@ button.alert-item.notice {
 .pane-row span {
   overflow-wrap: anywhere;
 }
+/* The glossary (#575): the TUI's WORDS, a term and its line a row. */
+.glossary {
+  margin: 8px 0 0;
+}
+.glossary div {
+  display: grid;
+  grid-template-columns: minmax(84px, 7.5em) 1fr;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+.glossary dt {
+  font-weight: 700;
+}
+.glossary dd {
+  margin: 0;
+  color: var(--muted);
+}
