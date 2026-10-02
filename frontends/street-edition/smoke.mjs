@@ -377,6 +377,26 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   for (const a of session.call("asset_offers")) clean(wash.assetTerms(a), `${a.ID}'s terms`);
 }
 {
+  // One way to write a number (#589): every module draws money, price,
+  // cash, pct and Go's ties to even from format.js, so a negative reads
+  // -$N (format.Money), never $-N, wherever the page writes it.
+  const f = await import(pathToFileURL(path.join(dist, "format.js")));
+  const M = { 0: "$0", 999: "$999", 30040: "$30,040", [-30040]: "-$30,040", [-0.4]: "$0", [-0.6]: "-$1", [-1234567]: "-$1,234,567" };
+  for (const [n, want] of Object.entries(M)) assert.equal(f.money(Number(n)), want, `format.Money(${n})`);
+  assert.equal(f.money(undefined), "$0", "no amount is $0");
+  assert.deepEqual([12.125, 999.5, 1234.4].map(f.price), ["$12.12", "$999.50", "$1,234"], "format.Price");
+  assert.deepEqual([[0.125, 0], [0.045, 1], [undefined, 0]].map(([x, d]) => f.pct(x, d)), ["12%", "4.5%", "0%"], "format.Pct");
+  assert.deepEqual([2.25, -2.25, 12.5, -12.5].map(f.pctText), ["2.2%", "-2.2%", "12%", "-12%"], "ui.pctText");
+  const wash = await import(pathToFileURL(path.join(dist, "wash.js")));
+  assert.equal(wash.cash(-12500000), "-$12M", "wash.js still serves format.js's cash");
+  const src = path.join(path.dirname(fileURLToPath(import.meta.url)), "src");
+  for (const name of fs.readdirSync(src).filter((n) => n.endsWith(".js") && n !== "format.js")) {
+    const text = fs.readFileSync(path.join(src, name), "utf8");
+    assert.doesNotMatch(text, /^\s*(const |let |  )money = /m, `${name} writes money with format.js's`);
+    assert.doesNotMatch(text, /\.toFixed\(\d\)[^.]/, `${name} rounds with format.js's fixed, not toFixed`);
+  }
+}
+{
   // The wash's audit odds, throughput, pile rot and tax (#577): the
   // numbers are the engine's queries, written as the TUI's ledger writes
   // them (format.Cash, format.CashWeight and Go's %.*f, ties to even).
@@ -1156,6 +1176,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, one way to write a number, and save round-trip.`,
 );
 process.exit(0);

@@ -9,13 +9,11 @@
 // (ui/presets.go) and the upgrades' prerequisites by name are here too:
 // presets are bundles of the routine's dials.
 
-import { fixed } from "./wash.js?v=__BUILD_REVISION__";
+import { fixed, money, pct, price as unitPrice } from "./format.js?v=__BUILD_REVISION__";
 
-const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
-  price = (n) => "$" + (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+const price = (n) => "$" + (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
   plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
-  times = (x) => "×" + (Math.round(x * 100) / 100).toString(),
-  pct = (x) => Math.round(x * 100) + "%";
+  times = (x) => "×" + (Math.round(x * 100) / 100).toString();
 
 // ALL is the quantity a standing order kept at the whole stash is
 // placed with (game.AllUnits, #503).
@@ -291,7 +289,7 @@ export function salePreview(v, q, city, id, qty, dial) {
     total = Math.trunc(est * unit),
     heat = q("rules.heat.sale_heat", city, id, qty, dial) + q("rules.heat.sloppy_heat", city, est),
     rows = [
-      ["expect", `~${est} of ${qty} at ~${unit < 1000 ? "$" + fixed(unit, 2) : money(unit)} = ~${money(total)}`, "gold"],
+      ["expect", `~${est} of ${qty} at ~${unitPrice(unit)} = ~${money(total)}`, "gold"],
       ["heat", `+${fixed(heat, 1)}`, heatTone(c.heat + heat * 4)],
       ["", DIAL_BLURBS[dial] || DIAL_BLURBS.normal, "subtle"],
     ];
@@ -450,14 +448,14 @@ export function commandName(v, c) {
 // tonight; "" with none.
 export function changeEstimate(v, q, c) {
   const signedMoney = (n) => (n >= 0 ? "+" : "-") + money(Math.abs(n)),
-    signedPct = (f) => (f >= 0 ? "+" : "") + (Math.abs(f) < 10 ? f.toFixed(1) : f.toFixed(0)) + "%",
+    signedPct = (f) => (f >= 0 ? "+" : "") + fixed(f, Math.abs(f) < 10 ? 1 : 0) + "%",
     order = (o) => ({ city: o.City, product: o.Product, qty: o.Qty, dial: DIALS[o.Dial] || "normal", all: o.All });
   switch (c.setting) {
     case "standing": {
       const a = c.was ? estimate(v, q, order(c.was), true) : { take: 0, heat: 0 },
         b = c.now ? estimate(v, q, order(c.now), true) : { take: 0, heat: 0 };
       if (c.was && c.now && a.take > 0 && a.heat > 0) return `~take ${signedPct(((b.take - a.take) / a.take) * 100)}, heat ${signedPct(((b.heat - a.heat) / a.heat) * 100)}`;
-      return `~take ${signedMoney(b.take - a.take)}, heat ${(b.heat - a.heat >= 0 ? "+" : "") + (b.heat - a.heat).toFixed(1)}`;
+      return `~take ${signedMoney(b.take - a.take)}, heat ${(b.heat - a.heat >= 0 ? "+" : "") + fixed(b.heat - a.heat, 1)}`;
     }
     case "supply":
       return (c.cost || 0) === (c.cost_to || 0) ? "" : `~${signedMoney((c.cost_to || 0) - (c.cost || 0))} a morning`;

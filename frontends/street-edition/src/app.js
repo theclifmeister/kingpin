@@ -17,6 +17,7 @@ import * as roads from "./routes.js?v=__BUILD_REVISION__";
 import * as stage from "./stage.js?v=__BUILD_REVISION__";
 import { glossary } from "./glossary.js?v=__BUILD_REVISION__";
 import * as report from "./report.js?v=__BUILD_REVISION__";
+import { fixed, money } from "./format.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -30,8 +31,7 @@ const $ = (s) => document.querySelector(s),
           "'": "&#39;",
         })[c],
     );
-const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
-  pct = (n) => Math.max(0, Math.min(100, n || 0)),
+const pct = (n) => Math.max(0, Math.min(100, n || 0)),
   plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`;
 const paths = {
   map: "M3 5l6-2 6 2 6-2v16l-6 2-6-2-6 2V5zm6-2v16m6-14v16",
@@ -627,7 +627,7 @@ function cornerModal(id) {
       ...v.crew.filter((m) => ["runner", "enforcer"].includes(m.role)),
     ];
   modal(
-    `<div class="eyebrow">ON THE CORNER</div><h2>${esc(c.name)}</h2><p>Held by ${esc(owner)} · Demand multiplier ${c.demand.toFixed(1)}×</p>${strikeOrder()?.corner === c.id ? `<p class="warn-text">⚔ ${esc(strikeOrder().force)} tonight</p>` : ""}${c.owner !== "rival" ? `<label>Who should work here?<select id="post-member">${postable.map((m) => `<option value="${m.id}">${esc(m.name)} · ${m.role}</option>`).join("")}</select></label>${btn("Assign to this corner", "post", c.id, "primary")}${c.owner === "player" ? btn("Abandon corner", "abandon", c.id, "subtle") : ""}` : `<div class="tip-box">Contesting territory can increase heat, evidence, and retaliation. Check your crew before committing.</div><label>Force<select id="force-dial"><option>warn</option><option>push</option><option>hit</option></select></label>${btn("Send enforcers", "strike", c.id, "primary", !v.crew.some((m) => m.role === "enforcer"))}${btn("Tip the police", "tip", c.id, "subtle")}<label>Price competition<select id="undercut-dial"><option>quiet</option><option>normal</option><option>aggressive</option></select></label>${btn("Undercut tonight", "undercut", c.id, "subtle")}`}`,
+    `<div class="eyebrow">ON THE CORNER</div><h2>${esc(c.name)}</h2><p>Held by ${esc(owner)} · Demand multiplier ${fixed(c.demand, 1)}×</p>${strikeOrder()?.corner === c.id ? `<p class="warn-text">⚔ ${esc(strikeOrder().force)} tonight</p>` : ""}${c.owner !== "rival" ? `<label>Who should work here?<select id="post-member">${postable.map((m) => `<option value="${m.id}">${esc(m.name)} · ${m.role}</option>`).join("")}</select></label>${btn("Assign to this corner", "post", c.id, "primary")}${c.owner === "player" ? btn("Abandon corner", "abandon", c.id, "subtle") : ""}` : `<div class="tip-box">Contesting territory can increase heat, evidence, and retaliation. Check your crew before committing.</div><label>Force<select id="force-dial"><option>warn</option><option>push</option><option>hit</option></select></label>${btn("Send enforcers", "strike", c.id, "primary", !v.crew.some((m) => m.role === "enforcer"))}${btn("Tip the police", "tip", c.id, "subtle")}<label>Price competition<select id="undercut-dial"><option>quiet</option><option>normal</option><option>aggressive</option></select></label>${btn("Undercut tonight", "undercut", c.id, "subtle")}`}`,
   );
 }
 // ending is the run summary (ui/summary.go, #465, #498, #518): the
@@ -1379,7 +1379,7 @@ function previewTonight() {
   }
   const p = session.preview();
   modal(
-    `<div class="eyebrow">BEFORE THE CITY SLEEPS</div><h2>Tonight, estimated.</h2><p>Day ${v.day} → ${p.day}${p.lie_low ? " · Lying low; no street sales" : ""}</p>${(p.alerts || []).map(alertButton).join("")}${flowHTML(p.flow)}${(p.sales || []).map((s) => `<p>${esc(cityName(s.city))}: ~${plural(s.units, "unit")} sold${s.delivered ? `, ${s.delivered} handed over` : ""} · ~${money(s.take)} take · ${s.heat >= 0 ? "+" : ""}${s.heat.toFixed(1)} heat</p>`).join("")}${washHTML(p.wash)}${p.idle?.length ? `<div class="tip-box">Idle crew: ${p.idle.map((x) => esc(x.name)).join(", ")}</div>` : ""}${p.corners?.length ? `<p>Unworked corners: ${p.corners.map((x) => `${esc(cornerName(x.corner))} (${plural(x.days, "day")} until loss)`).join(", ")}</p>` : ""}<p class="subtle-text">${esc(unknownLine(p.unknown))}</p><div class="card-actions">${btn("End the day", "advance-day", "", "primary")}${btn("Keep planning", "close", "", "subtle")}</div>`,
+    `<div class="eyebrow">BEFORE THE CITY SLEEPS</div><h2>Tonight, estimated.</h2><p>Day ${v.day} → ${p.day}${p.lie_low ? " · Lying low; no street sales" : ""}</p>${(p.alerts || []).map(alertButton).join("")}${flowHTML(p.flow)}${(p.sales || []).map((s) => `<p>${esc(cityName(s.city))}: ~${plural(s.units, "unit")} sold${s.delivered ? `, ${s.delivered} handed over` : ""} · ~${money(s.take)} take · ${s.heat >= 0 ? "+" : ""}${fixed(s.heat, 1)} heat</p>`).join("")}${washHTML(p.wash)}${p.idle?.length ? `<div class="tip-box">Idle crew: ${p.idle.map((x) => esc(x.name)).join(", ")}</div>` : ""}${p.corners?.length ? `<p>Unworked corners: ${p.corners.map((x) => `${esc(cornerName(x.corner))} (${plural(x.days, "day")} until loss)`).join(", ")}</p>` : ""}<p class="subtle-text">${esc(unknownLine(p.unknown))}</p><div class="card-actions">${btn("End the day", "advance-day", "", "primary")}${btn("Keep planning", "close", "", "subtle")}</div>`,
   );
 }
 // ambitionsHTML is the plans (ui/ambitions.go): each with its bar, its
@@ -2296,7 +2296,7 @@ function buyDialog(id) {
     `<div class="eyebrow">STOCK UP</div><h2>Buy ${esc(routine.productName(v, id))}</h2>${cs
       .map((c, i) => {
         const [n, t] = market.note(v, c);
-        return `<label class="choice"><span><input type="radio" name="buy-connect" value="${esc(c.id)}" data-input="buy" ${i === 0 ? "checked" : ""}> <b>${esc(c.name)}</b> · ${market.row(c, id).unit != null ? "$" + c.prices[id].toFixed(2) : "—"} · lot ${c.lot} · ${c.cap.toLocaleString("en-US")} left · rel ${Math.round(c.rel)} <small class="${tone(t)}">${esc(n)}</small></span></label>`;
+        return `<label class="choice"><span><input type="radio" name="buy-connect" value="${esc(c.id)}" data-input="buy" ${i === 0 ? "checked" : ""}> <b>${esc(c.name)}</b> · ${market.row(c, id).unit != null ? "$" + fixed(c.prices[id], 2) : "—"} · lot ${c.lot} · ${c.cap.toLocaleString("en-US")} left · rel ${Math.round(c.rel)} <small class="${tone(t)}">${esc(n)}</small></span></label>`;
       })
       .join(
         "",

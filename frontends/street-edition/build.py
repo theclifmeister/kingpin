@@ -100,8 +100,9 @@ def build():
     goroot = Path(subprocess.check_output([GO, 'env', 'GOROOT'], text=True).strip())
     shutil.copyfile(goroot / 'lib/wasm/wasm_exec.js', OUT / 'assets/wasm_exec.js')
     shutil.copyfile(go_license(goroot), OUT / 'assets/GO-LICENSE.txt')
-    for name in ['app.js', 'law.js', 'routine.js', 'stage.js', 'index.html']:
-        path = OUT / name
+    # Every module imports format.js (#589), so every module is stamped:
+    # one URL per module, or a module would load twice.
+    for path in [*OUT.glob('*.js'), OUT / 'index.html']:
         path.write_text(path.read_text().replace('__BUILD_REVISION__', revision))
     print(f'Built {OUT} from {revision}')
 

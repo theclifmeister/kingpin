@@ -4,8 +4,9 @@
 // functions of what they are handed, so smoke.mjs runs them against the
 // engine; they touch no DOM and return text, never HTML.
 
-const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
-  plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`,
+import { fixed, money } from "./format.js?v=__BUILD_REVISION__";
+
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`,
   round = (x) => Math.round(x),
   shown = (l) => Math.floor(l); // loyalty as the roster shows it (ui loyaltyShown)
 
@@ -204,7 +205,7 @@ export function summary(v, sloppy = 0, sloppySkill = 0) {
   for (const m of v.crew) if (m.role === "lieutenant" && !m.city) rows.push(["no city", m.name + " is a wage", true]);
   const snitch = v.crew.find((m) => m.exposed);
   if (snitch) rows.push(["snitch", snitch.name + ", fire them", true]);
-  if (sloppy > 0) rows.push(["sloppy", `+${sloppy.toFixed(1)} heat/100 units: runners under skill ${sloppySkill}, and a hothead on a corner`, true]);
+  if (sloppy > 0) rows.push(["sloppy", `+${fixed(sloppy, 1)} heat/100 units: runners under skill ${sloppySkill}, and a hothead on a corner`, true]);
   return rows;
 }
 

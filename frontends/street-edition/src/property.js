@@ -6,9 +6,9 @@
 // (`info`, engine-info.js), and returns words, rows or numbers: it
 // touches no DOM, so smoke.mjs checks them on a live run.
 
-const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
-  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
-  pct = (x, d = 0) => (x * 100).toFixed(d) + "%",
+import { fixed, money, pct } from "./format.js?v=__BUILD_REVISION__";
+
+const plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
   times = (x) => "×" + Number(x.toPrecision(3)).toString();
 const cityName = (v, id) => v.cities.find((c) => c.id === id)?.name || id,
   productName = (v, id) => v.cities.flatMap((c) => c.products).find((p) => p.id === id)?.name || id,
@@ -130,8 +130,8 @@ export function moveNote(v, city, to, info) {
   const { units, capacity } = placeHolds(v, city, to);
   return `${placeName(v, to)} holds ${units} of ${capacity}. A move is free and instant; the units moved are exposure tonight, at ${times(info.moveHeat)} of a unit sold.`;
 }
-export const moveHeatLine = (q, city, id, n) => `+${q("rules.heat.move_heat", city, id, n).toFixed(1)} tonight for ${n} units`;
-export const movedSaid = (v, q, city, from, to, id, n) => `Moved ${n} ${productName(v, id)} from ${placeName(v, from)} to ${placeName(v, to)}. The drive is +${q("rules.heat.move_heat", city, id, n).toFixed(1)} heat tonight.`;
+export const moveHeatLine = (q, city, id, n) => `+${fixed(q("rules.heat.move_heat", city, id, n), 1)} tonight for ${n} units`;
+export const movedSaid = (v, q, city, from, to, id, n) => `Moved ${n} ${productName(v, id)} from ${placeName(v, from)} to ${placeName(v, to)}. The drive is +${fixed(q("rules.heat.move_heat", city, id, n), 1)} heat tonight.`;
 
 // The guard (ui/houses.go): an enforcer for a house, or nobody. Each
 // candidate with where they are now.

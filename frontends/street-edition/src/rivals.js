@@ -9,10 +9,10 @@
 // number has no rule; it touches no DOM, so smoke.mjs checks them on a
 // live run.
 
-const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
-  count = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
-  pct = (x) => `${Math.round((x || 0) * 100)}%`,
-  pctBand = (lo, hi) => (pct(lo) === pct(hi) ? pct(lo) : `${Math.round(lo * 100)}–${pct(hi)}`),
+import { fixed, money, pct } from "./format.js?v=__BUILD_REVISION__";
+
+const count = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
+  pctBand = (lo, hi) => (pct(lo) === pct(hi) ? pct(lo) : `${fixed(lo * 100, 0)}–${pct(hi)}`),
   cornerOf = (v, id) => v.cities.flatMap((c) => c.corners).find((c) => c.id === id);
 
 // rivalName is how a faction is named everywhere: `Big Sal's crew`, or

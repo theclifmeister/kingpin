@@ -10,8 +10,7 @@
 // words, rows or numbers: it touches no DOM, so smoke.mjs checks them
 // on a live run.
 
-const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
-  pct = (x) => `${Math.round((x || 0) * 100)}%`;
+import { money, pct } from "./format.js?v=__BUILD_REVISION__";
 
 // count is a number and its noun: `1 body`, `2 bodies`, `3 crews`.
 export function count(n, w) {
