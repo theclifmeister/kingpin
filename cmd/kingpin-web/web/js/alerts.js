@@ -38,6 +38,36 @@ function productName(v, id) {
 // elsewhere is " in <city>" for a city that is not where you stand.
 const elsewhere = (v, city) => (city && v.you && city !== v.you.city ? ` in ${cityName(v, city)}` : "");
 
+// otherCity is the name of the city that is not this one when there
+// are two, "another city" when there are more, "" when there is one:
+// the TUI's otherCity.
+function otherCity(v, city) {
+  const cities = v.cities || [];
+  if (cities.length < 2) return "";
+  if (cities.length > 2) return "another city";
+  return cities[0].id === city ? cities[1].name : cities[0].name;
+}
+
+// cornerCity is the id of the city a corner is in, "" for none.
+function cornerCity(v, id) {
+  for (const c of v.cities || []) if (byId(c.corners, id)) return c.id;
+  return "";
+}
+
+// working is whether you work a corner yourself (game.You, -1).
+const working = (v) => (v.cities || []).some((c) => (c.corners || []).some((k) => k.runner === -1));
+
+// gateText is the gate's line, the TUI's gateText (#573): what opens at
+// what peak and how far it is, `The Laundromat opens at $25,000 peak:
+// $18,000 to go.`; the distance is the alert's amount.
+function gateText(a) {
+  const g = a.gate || { name: "A door" };
+  const [name, verb] =
+    { product: [g.name, "lists"], connect: [g.name, "deals"], front: [`The ${g.name}`, "opens"], asset: [g.name, "is for sale"] }[g.kind] ||
+    [g.name, "opens"];
+  return `${name} ${verb} at ${money(n(g.line))} peak${g.clean ? " clean" : ""}${g.vouch ? ` and ${g.vouch}` : ""}: ${money(n(a.amount))} to go.`;
+}
+
 // fileClose is how close the DA's file is (#492), the TUI's words.
 function fileClose(a) {
   const left = n(a.amount) - n(a.count);
@@ -57,11 +87,12 @@ function fileBust(a) {
 // whichever city filed the pages.
 const fileEvery = (v) => ((v.cities || []).length > 1 ? " It is one file for every city." : "");
 
-// PAGES are the causes of pages filed with no bust (#492).
+// PAGES are the causes of pages filed with no bust (#492), and what
+// answers each (#573).
 const PAGES = {
-  informant: "somebody on the payroll is talking: investigate on the crew screen",
-  retiree: "a sour retiree talked on the way out",
-  tip: "your tip on a rival came back on you",
+  informant: ["somebody on the payroll is talking", " Investigate, and fire whoever it names."],
+  retiree: ["a sour retiree talked on the way out", " They are gone: nobody to fire."],
+  tip: ["your tip on a rival came back on you", " Every tip to the police can file a page."],
 };
 
 // WORDS is one sentence a kind, off the alert's own fields and the
@@ -72,10 +103,10 @@ export const WORDS = {
   broke: (v, a) =>
     `The run ends broke tonight: ${money(n(a.have))} in hand, ${money(n(a.amount))} in wages${n(a.count) ? `, ${money(n(a.count))} in debt due` : ""}: ${money(Math.max(0, n(a.gap)))} left, under the cheapest unit here (${money(Math.ceil(n(a.line)))}), with nothing in stock or on the road. Buy something, or cut the pay or the crew.`,
   war_muscle: (v, a) =>
-    `War on ${(byId(v.factions, a.level) || { leader: "a faction" }).leader}'s crew with ${n(a.have)} of ${plural(n(a.amount), "enforcer")} on the payroll${n(a.count) <= 1 ? ", one corner left" : ""}: if the crew you are at war with takes your last corner, the run ends taken out.`,
+    `War on ${(byId(v.factions, a.level) || { leader: "a faction" }).leader}'s crew with ${n(a.have)} of ${plural(n(a.amount), "enforcer")} on the payroll${n(a.count) <= 1 ? ", one corner left" : ""}: if the crew you are at war with takes your last corner, the run ends taken out. Hire muscle.`,
   talking: () => "Somebody on the payroll is talking.",
   pages: (v, a) =>
-    `No bust, and the DA's file grew ${plural(n(a.have), "page")}: ${PAGES[a.level] || "somebody talked"}. ${fileClose(a)}.`,
+    `No bust, and the DA's file grew ${plural(n(a.have), "page")}: ${(PAGES[a.level] || ["somebody talked"])[0]}. ${fileClose(a)}.${(PAGES[a.level] || [])[1] || ""}`,
   contract_due: (v, a) => {
     const c = byId(v.contracts, a.contract);
     const when = a.due <= v.day ? "today" : "tomorrow";
@@ -97,14 +128,18 @@ export const WORDS = {
           : [`the ${productName(v, a.product)} trade`, "Stop selling it there and move it out, or let them have it."];
     return `Police are working ${name}${elsewhere(v, a.city)}: they hit ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}. ${answer}`;
   },
-  no_corner: (v, a) =>
-    `You hold no corner in ${cityName(v, a.city)}: nothing sells there. ${a.corner ? `Post on ${cornerName(v, a.corner)}, send` : "Send"} the enforcers at a rival's, buy a block, or sell in another city.`,
+  no_corner: (v, a) => {
+    const ways = [...(a.corner ? [`post on ${cornerName(v, a.corner)}`] : []), "send the enforcers at a rival's", "or buy a block"];
+    const other = otherCity(v, a.city);
+    const text = ways.join(", ");
+    return `You hold no corner in ${cityName(v, a.city)}: nothing sells there. ${text[0].toUpperCase()}${text.slice(1)}${other ? `, or sell in ${other}` : ""}.`;
+  },
   front_shut: (v, a) =>
     `${(byId(v.fronts, a.front) || { name: "A front" }).name} shut ${plural(n(a.days), "day")}: upkeep unpaid, ${money(n(a.amount))} clean short. It is ${money(n(a.have))}/day clean: keep that back.`,
-  float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
-  till: (v, a) => `Dirty cash held at the ${money(n(a.amount))} till ${plural(n(a.days), "night")} running: raise the till or turn the launder dial careful to save.`,
+  float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}): the wash and the road wait.`,
+  till: (v, a) => `Dirty cash held at the ${money(n(a.amount))} till ${plural(n(a.days), "night")} running: the wash takes the rest. Raise the till or turn the launder dial careful to save.`,
   wages: (v, a) =>
-    `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.${
+    `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand${v.you && v.you.clean_cash > 0 ? ": cash out clean" : ""}.${
       v.you && v.you.offshore ? ` The ${money(v.you.offshore)} offshore does not count: nothing comes back from it.` : ""
     }`,
   crew_line: (v, a) => {
@@ -119,20 +154,33 @@ export const WORDS = {
     const cross = { skim: "skimming", flip: "turning", walk: "walking" }[a.cross] || a.cross;
     return `${memberName(v, a.member)} is ${Math.max(1, Math.ceil(n(a.gap)))} loyalty from ${cross}${a.days ? ` (${plural(a.days, "day")})` : ""}. Pay them, or pay them off.`;
   },
-  skim: (v, a) => `Skimming suspected: money went missing on day ${n(a.day)}.`,
-  unposted: (v, a) =>
-    a.corner ? `${memberName(v, a.member)} has no post: ${cornerName(v, a.corner)} is free for them.` 
-      : `${memberName(v, a.member)} has no post and no corner is free here: send the enforcers at a rival's, buy a block, or post them in another city.`,
-  idle_corner: (v, a) => `Nobody works ${cornerName(v, a.corner)}: back to the street ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`,
-  stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}.`,
-  landed: (v, a) => `${n(a.count)} ${a.product} landed in ${cityName(v, a.city)} by the road, and no order sells it.`,
+  skim: (v, a) => `Skimming suspected: money went missing on day ${n(a.day)}. Watch the loyalty.`,
+  unposted: (v, a) => {
+    // The TUI's words (#573): the corner the engine names, or with none
+    // what would give them one.
+    const name = memberName(v, a.member);
+    const enforcer = (byId(v.crew, a.member) || {}).role === "enforcer";
+    if (a.corner) {
+      return `${name} has no post: ${enforcer ? "have them guard" : "put them on"} ${cornerName(v, a.corner)}${elsewhere(v, cornerCity(v, a.corner))}.`;
+    }
+    if (enforcer) return `${name} has no post: an enforcer needs a corner of yours to guard.`;
+    const other = otherCity(v, v.you && v.you.city);
+    return `${name} has no post and no corner is free here: send the enforcers at a rival's or buy a block${other ? `, or post them in ${other}` : ""}.`;
+  },
+  idle_corner: (v, a) => {
+    // #468: standing in its city working nothing, you can work it.
+    const post = v.you && a.city === v.you.city && !working(v) ? "Work it yourself." : "Post a runner.";
+    return `Nobody works ${cornerName(v, a.corner)}${elsewhere(v, a.city)}: back to the street ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}. ${post}`;
+  },
+  stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}. Rent a house or move stock.`,
+  landed: (v, a) => `${n(a.count)} ${productName(v, a.product)} landed in ${cityName(v, a.city)} by the road, and no order sells it.`,
   scouts: (v, a) => {
     const f = byId(v.factions, a.faction);
     const who = f ? `${f.leader}'s crew` : "Somebody";
     const what = a.level === "recruiting" ? `is recruiting in ${cityName(v, a.city)}` : `has scouts in ${cityName(v, a.city)}`;
-    return `${who} ${what}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}.`;
+    return `${who} ${what}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}. Answer them.`;
   },
-  gate: (v, a) => `${a.gate ? a.gate.name : "A door"} is within reach.`,
+  gate: (v, a) => gateText(a),
   port: (v, a) => {
     const facts = [plural(n(a.count), "free corner")];
     const city = byId(v.cities, a.city);
@@ -152,7 +200,7 @@ export const WORDS = {
       ? `The lanes abroad are open: ${facts}. Set a nightly load on a lane on the ledger.`
       : `The lanes abroad: ${facts}. Buy the Dutchman's book, then set a load on a lane on the ledger.`;
   },
-  house_known: (v, a) => `The police know about ${(byId(v.houses, a.house) || { name: "a house" }).name}.`,
+  house_known: (v, a) => `The police know about ${(byId(v.houses, a.house) || { name: "a house" }).name}: move the stock out and drop it.`,
   da_race: (v, a) => `The DA race is ${plural(n(a.days), "day")} off and the tickets are taking money.`,
   retire: (v, a) => {
     if (a.ready) return "You could retire.";
@@ -161,12 +209,13 @@ export const WORDS = {
     if (a.amount) parts.push(`${money(a.amount)} short`);
     return `Retirement: ${parts.join(", ") || "nearly there"}.`;
   },
-  favour: (v, a) => `The chief owes you one and the ${a.level || "police"} comes tonight.`,
+  favour: (v, a) =>
+    `${v.law && v.law.chief ? `Chief ${v.law.chief}` : "The chief"} owes you one and the ${a.level === "taskforce" ? "task force" : a.level || "police"} comes tonight: call it in.`,
   reign: (v, a) =>
     a.slip
       ? `The reign is slipping under the share of the corners: it breaks in ${plural(a.slip, "morning")} unless you take corners back.`
-      : `The city is yours: day ${n(a.days)} of the reign, ${n(a.count) ? `${plural(a.count, "crew")} paying ${money(n(a.amount))} a night` : "every crew gone"}. Take the crown or play on.`,
-  exposure: (v, a) => `Tonight's landings put ${money(a.amount)} past what your fronts cover: about +${Math.round(a.heat || 0)} heat.`,
+      : `The city is yours: day ${n(a.days)} of the reign, ${n(a.count) ? `${a.count} crew paying ${money(n(a.amount))} a night` : "every crew gone"}. Take the crown or play on.`,
+  exposure: (v, a) => `Tonight's ${plural(n(a.count), "load")} land ${money(n(a.amount))} past your cover: +${Math.round(n(a.heat))} heat before the wash.`,
   straight: (v, a) => `The fronts earn ${money(a.amount)} a day, more than the street: you could go straight.`,
   vanish: () => "The papers are good: you could vanish.",
   plan: (v, a) => {
