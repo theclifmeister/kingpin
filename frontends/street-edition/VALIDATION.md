@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575 and #560. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575, #560 and #589. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -54,6 +54,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Routine | Connect credit, route and market panes | done (debt #549, checkpoint #552, idle #553; #582: the connects with credit and debt and a buy on the book, the route pane, targets and driver, the market pane; #578: the pane's next product on the ladder, `ui/unlocks.go` `nextProductNote`) |
 | Money | Wash audit odds, throughput, pile rot, tax | done (#577: the ledger's audit, capacity and legit line, the pile's weight and rot, the tax a city at a time, a front's washes at the dial with the accountants' share and its audit; a front's washed today open #588) |
 | Money | Presets and upgrades in readable names | done (#582) |
+| Money | Every figure as `internal/format` writes it: `-$N` for a negative, Go's ties to even | done (#589: one `src/format.js`) |
 | Endings | The score (÷ 1 + bodies) on every way out and the ending screen | done (#554) |
 | Endings | Ending cards' terms and each exit's confirm (`ui/exit.go`) | done (#548; street-window words and reign income #554) |
 | Endings | Walk-away pending lines | done (#554) |
@@ -66,6 +67,15 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# One way to write a number (#589, no version moved)
+
+`app.js` wrote a negative as `$-30,040` where the TUI's `format.Money` writes `-$30,040`, and each module kept its own `money`, four of them with the same fault (`app.js`, `crew.js`, `lab.js`, `law.js`). They now share `src/format.js`: `money`, `price` (`format.Price`), `cash` (`format.Cash`, `market.js`'s `short` with it), `pct` (`format.Pct`), `pctText` and `fixed`, Go's `%.*f` with an exact tie to the even digit, which every displayed `toFixed` and `Math.round(x * 100)` percent in the pure modules now goes through (a ×1.25 multiplier, a 12.5% share, a heat of 2.25). `wash.js` re-exports `fixed` and `cash`. The build stamps the revision into every module, not just `app.js` and `law.js`, so `format.js` loads once.
+
+Where a negative now reads `-$N`: the Ledger's business income net of upkeep and its net worth, the cash flow's net change and lines, the fund dialog's clean left after giving (`law.js`), and any `money` of `app.js` given a debt or a loss. The inline percents in `app.js` (the investigation's odds, a proposal's odds, the captaincy's cut, the transfer fee, the driver's cut) still use `Math.round`, left for a PR that is in `app.js` anyway.
+
+- `smoke.mjs`: `money` over zero, positives, negatives and sub-dollar amounts (`-$30,040`, `$0` for -0.4, `-$1` for -0.6); `price` with a tie at the cents; `pct`, `pctText` with ties both ways; `wash.cash` still served; and no source module but `format.js` defines `money` or calls `toFixed` with a fixed digit count.
+- Chromium (Playwright headless, 1280×900 and 390×900) on a crafted save (`boss`, seed 4, 60 days, both fronts set to level 0): the Ledger reads `Business income, net of upkeep -$550/day`; no `$-` on any tab; no page errors; no horizontal scroll at 390.
 
 # Where a report line points (#560, protocol 28 / view 22)
 

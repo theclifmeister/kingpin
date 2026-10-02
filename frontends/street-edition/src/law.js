@@ -8,11 +8,10 @@
 // query (session.call), and returns words, rows or numbers: it touches
 // no DOM, so smoke.mjs checks them on a live run.
 
-import { fixed, upkeepTonight, upkeepWarning } from "./wash.js?v=__BUILD_REVISION__";
+import { fixed, money, pct } from "./format.js?v=__BUILD_REVISION__";
+import { upkeepTonight, upkeepWarning } from "./wash.js?v=__BUILD_REVISION__";
 
-const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
-  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
-  pct = (x) => `${Math.round((x || 0) * 100)}%`,
+const plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
   the = (name) => (String(name).startsWith("The ") ? name : "the " + name);
 
 const cityOf = (v, id) => v.cities.find((c) => c.id === id),
@@ -39,7 +38,7 @@ export function fill(cmp) {
 
 // swingWord is a campaign's pull on a city's vote: `4.5 points`.
 export function swingWord(s) {
-  return `${(s * 100).toFixed(1)} points`;
+  return `${fixed(s * 100, 1)} points`;
 }
 
 // cold is a law-and-order DA sitting (World.Cold): nobody takes calls.
@@ -178,14 +177,14 @@ export function raceLines(v, q, city) {
   if (camp.hedged) rows.push(["yours", `${money(camp.cash)} on both: it buys nothing`, "danger"]);
   else if (camp.cash > 0) rows.push(["yours", `${money(camp.cash)} ${stanceWord(camp.ticket)}, ${swingWord(swing(cmp, camp.cash))} of the vote`, "good"]);
   else rows.push(["yours", "nothing yet", "subtle"]);
-  rows.push(["price", `${money(cmp.Cash)} a point, ${Math.round(cmp.SwingMax * 100)} points at most`, ""]);
+  rows.push(["price", `${money(cmp.Cash)} a point, ${fixed(cmp.SwingMax * 100, 0)} points at most`, ""]);
   return rows;
 }
 
 // raceCosts is what the race costs (raceSection's last line).
 export function raceCosts(q) {
   const cmp = q("rules.law.campaign");
-  let s = `Clean cash, spent at the count. A campaign adds ${cmp.Pressure.toFixed(1)} pressure a day; a losing ticket adds ${Math.round(cmp.LoserPressure)} here`;
+  let s = `Clean cash, spent at the count. A campaign adds ${fixed(cmp.Pressure, 1)} pressure a day; a losing ticket adds ${Math.round(cmp.LoserPressure)} here`;
   if (cmp.LoserChief) s += ", and a zealous chief if law-and-order wins";
   return s + ". A winner you backed owes you: the sting line sits higher.";
 }
@@ -236,7 +235,7 @@ export function fundLines(v, q, c, raw) {
     if (warn) rows.push(["", warn.text, warn.tone]);
   }
   if (due > 0) rows.push(["upkeep", `${money(due)} clean tonight (blank keeps it back)`, "subtle"]);
-  rows.push(["", `Full goodwill takes ${tun.GoodwillCut.toFixed(1)} pressure off the city a day; it fades ${pct(tun.GoodwillDecay)} a day. Community centres, campaigns, benevolent funds: clean money only.`, "subtle"]);
+  rows.push(["", `Full goodwill takes ${fixed(tun.GoodwillCut, 1)} pressure off the city a day; it fades ${pct(tun.GoodwillDecay)} a day. Community centres, campaigns, benevolent funds: clean money only.`, "subtle"]);
   if (raceShown(v)) rows.push(["", `DA race in ${plural(Math.max(0, v.law.next_election - v.day), "day")}: the tickets are taking money below.`, "gold"]);
   return rows;
 }
@@ -260,7 +259,7 @@ export function campaignLines(v, q, c, given, ticket, raw) {
   if (camp.hedged) rows.push(["campaign", `${money(camp.cash)} on both tickets: it buys nothing`, "danger"]);
   else if (camp.cash > 0) rows.push(["campaign", `${money(camp.cash)} behind ${stanceWord(camp.ticket)}, ${swingWord(swing(cmp, camp.cash))} of the vote`, "good"]);
   else rows.push(["campaign", "nothing yet", "subtle"]);
-  rows.push(["price", `${money(cmp.Cash)} a point of the vote, ${Math.round(cmp.SwingMax * 100)} at most`, "gold"]);
+  rows.push(["price", `${money(cmp.Cash)} a point of the vote, ${fixed(cmp.SwingMax * 100, 0)} at most`, "gold"]);
   const r = readAmount(raw, 0);
   if (r.err) rows.push(["", r.err, "danger"]);
   else if (r.amount > 0) {
@@ -269,7 +268,7 @@ export function campaignLines(v, q, c, given, ticket, raw) {
     const warn = upkeepWarning(q, v.you.clean_cash - given - r.amount, v.you.dirty_cash);
     if (warn) rows.push(["", warn.text, warn.tone]);
   }
-  rows.push(["", `A winner you backed owes you: the sting line sits higher. A loser's rival knows who paid. Money on both tickets buys nothing; a campaign adds ${cmp.Pressure.toFixed(1)} pressure a day.`, "subtle"]);
+  rows.push(["", `A winner you backed owes you: the sting line sits higher. A loser's rival knows who paid. Money on both tickets buys nothing; a campaign adds ${fixed(cmp.Pressure, 1)} pressure a day.`, "subtle"]);
   return rows;
 }
 
@@ -462,7 +461,7 @@ export function officialWord(v, q, target) {
 export function bribeTerms(v, q) {
   const tun = q("rules.law.bribes");
   const lines = [
-    [`A corrupt chief takes it: heat fades ${q("rules.heat.bribe_decay_mul").toFixed(1)}x faster and stings and raids come ${plural(q("rules.heat.bribe_cooldown"), "day")} later for ${plural(tun.BribeDays, "day")}. A lazy one takes half the good. A zealous one, or a law-and-order DA, files it: a page and heat ${Math.round(tun.BackfireHeat)} in the morning.`, "subtle"],
+    [`A corrupt chief takes it: heat fades ${fixed(q("rules.heat.bribe_decay_mul"), 1)}x faster and stings and raids come ${plural(q("rules.heat.bribe_cooldown"), "day")} later for ${plural(tun.BribeDays, "day")}. A lazy one takes half the good. A zealous one, or a law-and-order DA, files it: a page and heat ${Math.round(tun.BackfireHeat)} in the morning.`, "subtle"],
     [`A DA who takes it needs a thicker file to indict for ${plural(tun.BribeDays, "day")}. Every envelope taken is a lead; at ${tun.LeadsCase} the DA opens a file. Dirty cash only.`, "subtle"],
   ];
   if (cold(v)) lines.push(["A law-and-order DA sits: the chief is not taking calls.", "danger"]);

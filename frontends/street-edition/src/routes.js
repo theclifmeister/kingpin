@@ -7,12 +7,12 @@
 // words, rows or numbers: it touches no DOM, so smoke.mjs checks them on
 // a live run. A row is [label, text, tone].
 
-const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
-  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
-  pct = (x) => Math.round(x * 100) + "%",
+import { fixed, money, pct } from "./format.js?v=__BUILD_REVISION__";
+
+const plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
   // fare is a fare a unit: whole dollars as money prints them, cents
   // where the tree has cut one under a dollar (#119).
-  fare = (x) => (x === Math.floor(x) ? money(x) : "$" + x.toFixed(2));
+  fare = (x) => (x === Math.floor(x) ? money(x) : "$" + fixed(x, 2));
 
 export const cityName = (v, id) => v.cities.find((c) => c.id === id)?.name || id;
 export const productName = (v, id) => v.cities.flatMap((c) => c.products).find((p) => p.id === id)?.name || id;

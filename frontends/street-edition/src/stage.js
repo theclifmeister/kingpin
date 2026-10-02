@@ -8,7 +8,7 @@
 // the file's words and the NEXT line; see_stage with `pending` marks it
 // seen.
 
-import { cash as short } from "./wash.js?v=__BUILD_REVISION__";
+import { cash as short } from "./format.js?v=__BUILD_REVISION__";
 
 // pending is the stage waiting to be seen, or 0.
 export const pending = (v) => v.stage?.pending || 0;

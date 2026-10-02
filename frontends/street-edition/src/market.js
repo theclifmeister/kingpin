@@ -8,25 +8,13 @@
 // on a live run. A row is [label, text, tone], tone one of "", "subtle",
 // "warn", "bad", "good".
 
-const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
-  price = (n) => "$" + (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+import { cash, fixed, money, pct, pctText } from "./format.js?v=__BUILD_REVISION__";
+
+const price = (n) => "$" + (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
   plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
   times = (x, sig = 2) => "×" + Number((x || 0).toFixed(sig)).toString(),
-  pctText = (f) => (f < 10 && f > -10 ? f.toFixed(1) : f.toFixed(0)) + "%",
-  signedPct = (f) => (f >= 0 ? "+" : "") + Math.round(f) + "%",
-  // short is format.Cash: whole dollars under $10K, then $12K, $1.5M.
-  short = (n) => {
-    if (n > -10000 && n < 10000) return money(n);
-    const sign = n < 0 ? "-" : "",
-      units = ["K", "M", "B", "T"];
-    let x = Math.abs(n) / 1000,
-      i = 0;
-    while (i < units.length - 1 && Math.round(x) >= 1000) {
-      x /= 1000;
-      i++;
-    }
-    return `${sign}$${x < 10 ? x.toFixed(1) : x.toFixed(0)}${units[i]}`;
-  };
+  signedPct = (f) => (f >= 0 ? "+" : "") + fixed(f, 0) + "%",
+  short = cash; // format.Cash
 
 export const cityName = (v, id) => v.cities.find((c) => c.id === id)?.name || id;
 export const productName = (v, id) => v.cities.flatMap((c) => c.products).find((p) => p.id === id)?.name || id;
@@ -128,9 +116,9 @@ export function pane(v, q, c) {
       ["temper", c.temper, ""],
       ["", temperShort(c.temper), "subtle"],
       ["rel", `${Math.round(c.rel)} · ${bandWord(band, bands)}`, bandTone(band, bands)],
-      ["price", `~${Math.round(q("rules.market.supplier_ratio", c.id) * 100)}% of street`, ""],
+      ["price", `~${pct(q("rules.market.supplier_ratio", c.id))} of street`, ""],
     ];
-  if (band < bands - 1) rows.push(["", `~${Math.round(q("rules.market.ratio_at", c.id, band + 1) * 100)}% at rel ${Math.round((band + 1) * tun.BandWidth)}`, "subtle"]);
+  if (band < bands - 1) rows.push(["", `~${pct(q("rules.market.ratio_at", c.id, band + 1))} at rel ${Math.round((band + 1) * tun.BandWidth)}`, "subtle"]);
   rows.push(["lot", String(c.lot), ""]);
   if (c.small_lot > 1) rows.push(["", `under it ${times(c.small_lot)} a unit`, "subtle"]);
   rows.push(["today", `${c.cap.toLocaleString("en-US")} of ${c.day_cap.toLocaleString("en-US")} left`, ""]);

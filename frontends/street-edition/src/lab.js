@@ -7,10 +7,10 @@
 // them on a live run. The lot's quality and the stash's room are view
 // 17's `you.quality` and `you.room`.
 
-const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
-  price = (n) => (n < 1000 ? "$" + (n || 0).toFixed(2) : money(n)),
-  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
-  times = (x) => "×" + x.toFixed(2),
+import { fixed, money, pct, price } from "./format.js?v=__BUILD_REVISION__";
+
+const plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
+  times = (x) => "×" + fixed(x, 2),
   round = (x) => Math.round(x).toString();
 
 const cityOf = (v, city) => v.cities.find((c) => c.id === city),
@@ -120,7 +120,7 @@ export function cutRows(v, q, city) {
     name: productName(v, city, id),
     units: stock(v, city, id),
     quality: Math.round(quality(v, q, city, id)),
-    most: "+" + Math.round(q("rules.market.cut_max", id) * 100) + "%",
+    most: "+" + pct(q("rules.market.cut_max", id)),
     price: price(q("rules.market.cut_cost", id)),
   }));
 }

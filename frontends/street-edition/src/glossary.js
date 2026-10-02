@@ -7,6 +7,8 @@
 // holds WORDS to the TUI's, so a term the TUI gains or rewords reaches
 // here. A pure module: it touches no DOM, and smoke.mjs checks it.
 
+import { pct } from "./format.js?v=__BUILD_REVISION__";
+
 // WORDS are [term, line], the line with the TUI's placeholders for the
 // numbers the file sets ({retire_heat}, {sting_pages}, ...), filled by
 // glossary().
@@ -89,7 +91,7 @@ export function glossary(info) {
       sting_pages: plural(pages.sting || 0, "page"),
       raid_pages: plural(pages.raid || 0, "page"),
       hit_pages: String(g.hitPages || 0),
-      betray_share: Math.round((g.betrayShare || 0) * 100) + "%",
+      betray_share: pct(g.betrayShare),
       betray_corners: String(g.betrayCorners || 0),
       street_window: String(g.streetWindow || 0),
     };
