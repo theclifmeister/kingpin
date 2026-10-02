@@ -298,6 +298,54 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   for (const a of session.call("asset_offers")) clean(wash.assetTerms(a), `${a.ID}'s terms`);
 }
 {
+  // The wash's audit odds, throughput, pile rot and tax (#577): the
+  // numbers are the engine's queries, written as the TUI's ledger writes
+  // them (format.Cash, format.CashWeight and Go's %.*f, ties to even).
+  const wash = await import(pathToFileURL(path.join(dist, "wash.js")));
+  const q = (m, ...p) => session.call(m, ...p);
+  const C = { 0: "$0", 500: "$500", 9999: "$9,999", [-2500]: "-$2,500", 10000: "$10K", 999499: "$999K", 999600: "$1.0M", 1234567: "$1.2M", 12345678: "$12M", 12500000: "$12M", 13500000: "$14M", 3400000000: "$3.4B", [-1500000]: "-$1.5M" };
+  for (const [n, want] of Object.entries(C)) assert.equal(wash.cash(Number(n)), want, `format.Cash(${n})`);
+  for (const [n, want] of [[50000, "under a kilo"], [100000, "1 kg"], [45000000, "450 kg"], [99990000, "1.0 tonnes"], [150000000, "1.5 tonnes"], [1200000000, "12 tonnes"]])
+    assert.equal(wash.cashWeight(n), want, `format.CashWeight(${n})`);
+  assert.deepEqual([[0.25, 1], [0.35, 1], [2.5, 0], [3.5, 0], [-2.5, 0], [1.15, 1]].map(([x, d]) => wash.fixed(x, d)), ["0.2", "0.3", "2", "4", "-2", "1.1"], "Go's %.*f");
+  const v = session.refresh(),
+    any = q("rules.laundering.any_audit_risk");
+  const signed = (n) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US"); // a front's upkeep makes legit income negative
+  assert.equal(wash.odds(q), `audit ${wash.fixed(any * 100, 1)}%/day · up to ${signed(q("rules.laundering.capacity"))}/day · legit ${signed(q("rules.laundering.legit_income"))}/day`);
+  // The pile: nothing under $10M; over it its weight, and the rot over
+  // the rot line.
+  assert.equal(wash.pileLine({ ...v, you: { ...v.you, dirty_cash: 9_999_999 } }, q), null, "no pile line under $10M");
+  const big = 120_000_000,
+    rot = q("rules.laundering.rot", big),
+    line = q("rules.laundering.rot_line");
+  assert.ok(rot > 0 && line > 0 && line < big, "a $120M pile rots");
+  assert.equal(wash.pileLine({ ...v, you: { ...v.you, dirty_cash: big } }, q).text, `the pile weighs 1.2 tonnes in hundreds · rats and damp take ~$${rot.toLocaleString("en-US")} a night over ${wash.cash(line)}`);
+  assert.ok(wash.washLines({ ...v, you: { ...v.you, dirty_cash: big } }, q, null)[0].label === "pile", "the pile leads the wash lines");
+  // The tax: a city held pays off its free corners; one not held says
+  // nothing.
+  const c0 = v.cities[0],
+    held = (m, ...p) => (m === "rules.territory.tax_due" ? (p[0] === c0.id ? { corners: 3, amount: 1234 } : { corners: 0, amount: 0 }) : q(m, ...p));
+  assert.deepEqual(
+    wash.taxLines({ ...v, stats: { ...v.stats, taxed: 45000 } }, held).map((l) => l.text + l.more),
+    [`3 free corners in ${c0.name} pay ~$1,234/night · $45K so far`],
+  );
+  for (const c of v.cities) assert.equal(typeof q("rules.territory.tax_due", c.id).corners, "number", `${c.id}'s tax`);
+  assert.equal(wash.taxLines(v, q).length, v.cities.filter((c) => q("rules.territory.tax_due", c.id).corners > 0).length);
+  // A front's throughput and audit at the dial; an accountant's share
+  // is what the throughput is over the base at the dial.
+  const o = q("rules.laundering.offers")[0],
+    f = { id: o.ID, bought: 0 },
+    tp = q("rules.laundering.throughput", o.ID),
+    mul = q("rules.laundering.dial", v.you.launder).Mul;
+  const rows = wash.frontRows({ ...v, crew: [] }, q, f, o);
+  assert.deepEqual(rows[0], ["washes", `$${tp.toLocaleString("en-US")}/day`]);
+  assert.match(rows[1][1], new RegExp(`^\\d+(\\.\\d)?%/day at ${v.you.launder}$`));
+  const withAcct = wash.frontRows({ ...v, crew: [{ role: "accountant" }] }, q, f, o)[0][1];
+  assert.equal(withAcct, `$${tp.toLocaleString("en-US")}/day (+$${(tp - Math.round(o.Throughput * mul)).toLocaleString("en-US")} accountants)`);
+  assert.doesNotMatch(wash.frontRows({ ...v, crew: [{ role: "accountant", jailed: true }] }, q, f, o)[0][1], /accountants/, "a jailed accountant is not at work");
+  assert.match(wash.offerAudit(o), /^\d+(\.\d)?%$/);
+}
+{
   // The cut and the cook (#557): a Cook run cooks a batch and cuts the
   // lot in the web's words, lab.js's numbers on view 17's quality and
   // room, and each act reaches the engine.
@@ -899,6 +947,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, and save round-trip.`,
 );
 process.exit(0);

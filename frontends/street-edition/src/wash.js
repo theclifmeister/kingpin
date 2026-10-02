@@ -5,8 +5,46 @@
 // and returns words, a tone ("" plain, "warn", "danger", "subtle") or
 // numbers: it touches no DOM, so smoke.mjs checks them on a live run.
 
-const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
-  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`;
+const money = (n, r = Math.round(n || 0)) => (r < 0 ? "-$" : "$") + Math.abs(r).toLocaleString("en-US"), // format.Money: -$30,040
+  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`,
+  pct = (x, d) => fixed(x * 100, d) + "%", // format.Pct
+  pctText = (f) => fixed(f, f < 10 && f > -10 ? 1 : 0) + "%"; // ui.pctText, on a percent
+
+// fixed is Go's %.*f: toFixed, but an exact tie goes to the even digit
+// as Go rounds it ($12.5M is $12M in the TUI, where toFixed says $13M).
+// toFixed(100) is the float's exact decimal, so a tie is a 5 and zeros.
+export function fixed(x, d) {
+  const s = x.toFixed(d);
+  const exact = Math.abs(x).toFixed(100),
+    rest = exact.slice(exact.indexOf(".") + 1 + d);
+  if (!/^50*$/.test(rest)) return s;
+  const down = (Math.trunc(Math.abs(x) * 10 ** d) / 10 ** d).toFixed(d), // the digits kept, unrounded
+    last = Number(down[down.length - 1]);
+  return last % 2 === 0 ? (x < 0 ? "-" : "") + down : s;
+}
+
+// cash is a big amount the short way, as format.Cash writes it: under
+// $10,000 in full, then $12K, $1.2M, $3.4B.
+export function cash(n) {
+  n = Math.round(n || 0);
+  if (n > -10_000 && n < 10_000) return money(n);
+  const sign = n < 0 ? "-" : "",
+    units = ["K", "M", "B", "T"];
+  let x = Math.abs(n) / 1000,
+    i = 0;
+  while (i < units.length - 1 && Math.round(x) >= 1000) (x /= 1000), i++; // $999,600 reads $1.0M
+  return `${sign}$${fixed(x, x < 10 ? 1 : 0)}${units[i]}`;
+}
+
+// cashWeight is what a pile of dirty cash weighs in hundreds, as
+// format.CashWeight writes it.
+export function cashWeight(n) {
+  const kg = n / 100 / 1000;
+  if (kg < 1) return "under a kilo";
+  if (Math.round(kg) < 1000) return `${fixed(kg, 0)} kg`;
+  if (kg < 9950) return `${fixed(kg / 1000, 1)} tonnes`;
+  return `${fixed(kg / 1000, 0)} tonnes`;
+}
 
 // till is the wash's line as it stands (#496, #526): the till (the
 // float, or the player's line over it), the float under it, the rot
@@ -77,13 +115,71 @@ export function roadWaits(v, q) {
   return null;
 }
 
+// odds is the ledger's summary beside the launder dial (#577,
+// ui/ledger.go): the odds of an audit tonight on any open front, what
+// the open fronts wash between them, and what they earn on their own.
+export function odds(q) {
+  return `audit ${pct(q("rules.laundering.any_audit_risk"), 1)}/day · up to ${money(q("rules.laundering.capacity"))}/day · legit ${money(q("rules.laundering.legit_income"))}/day`;
+}
+
+// pileLine is the ledger's word on a dirty pile big enough to be a
+// storage problem (#392, the TUI's pileLine): its weight in hundreds,
+// and the rot a night once it is over the rot line. null under $10M.
+export function pileLine(v, q) {
+  const dirty = v.you.dirty_cash;
+  if (dirty < 10_000_000) return null;
+  const rot = q("rules.laundering.rot", dirty);
+  return {
+    label: "pile",
+    text: `the pile weighs ${cashWeight(dirty)} in hundreds${rot > 0 ? ` · rats and damp take ~${money(rot)} a night over ${cash(q("rules.laundering.rot_line"))}` : ""}`,
+    more: "",
+    tone: "gold",
+  };
+}
+
+// taxLines are the tax (#231): what the free corners of each city you
+// hold pay a night, with the run's take so far.
+export function taxLines(v, q) {
+  return v.cities.flatMap((c) => {
+    const t = q("rules.territory.tax_due", c.id);
+    return t.corners > 0
+      ? [{ label: "tax", text: `${plural(t.corners, "free corner")} in ${c.name} pay ~${money(t.amount)}/night`, more: ` · ${cash(v.stats.taxed)} so far`, tone: "gold" }]
+      : [];
+  });
+}
+
+// frontRows are an owned front's wash, as the TUI's front pane rows
+// them (#577): what it washes a day at the dial with the accountants'
+// share, and its audit odds at the dial. o is its offer
+// (rules.laundering.offers), for the base the accountants add to.
+// [[label, text]].
+export function frontRows(v, q, f, o) {
+  const dial = v.you.launder;
+  let washes = `${money(q("rules.laundering.throughput", f.id))}/day`;
+  if (v.crew.some((m) => m.role === "accountant" && !m.jailed && !m.wounded)) {
+    const base = Math.round(o.Throughput * q("rules.laundering.dial", dial).Mul);
+    washes += ` (+${money(q("rules.laundering.throughput", f.id) - base)} accountants)`;
+  }
+  return [
+    ["washes", washes],
+    ["audit", `${pctText(q("rules.laundering.audit_risk", f.id) * 100)}/day at ${dial}`],
+  ];
+}
+
+// offerAudit is an offer's audit odds a day at the normal dial, as the
+// TUI's offer pane writes the percent.
+export const offerAudit = (o) => pctText(o.AuditRisk * 100);
+
 // washLines are the ledger's lines under the wash (#417, #524): the
-// wash idle under the till, a route waiting on a lot and the till that
-// would save for it, and the fronts the night is expected to shut on
-// their upkeep (preview.wash.shuts). [{label, text, more, tone}].
+// pile's weight and rot, the wash idle under the till, a route waiting
+// on a lot and the till that would save for it, the fronts the night is
+// expected to shut on their upkeep (preview.wash.shuts), and the tax
+// (#577). [{label, text, more, tone}].
 export function washLines(v, q, p) {
   const t = till(q),
     out = [];
+  const pile = pileLine(v, q);
+  if (pile) out.push(pile);
   if (v.fronts.length && v.you.dirty_cash <= t.till)
     out.push({ label: "wash", text: `idle: dirty ${money(v.you.dirty_cash)} is under the ${money(t.till)} till`, more: "; the wash takes only what is over it", tone: "warn" });
   const road = roadWaits(v, q);
@@ -95,7 +191,7 @@ export function washLines(v, q, p) {
   }
   if (p && p.wash && p.wash.shuts && p.wash.shuts.length)
     out.push({ label: "upkeep", text: `${p.wash.shuts.join(", ")} expected to shut tonight: upkeep ${money(p.wash.short)} clean short`, more: `; the wash leaves ${money(t.line)} dirty in hand`, tone: "danger" });
-  return out;
+  return out.concat(taxLines(v, q));
 }
 
 // upkeepWarning is the warning a move shows when it leaves the clean

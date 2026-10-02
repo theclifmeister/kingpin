@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582 and #574. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574 and #577. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -52,7 +52,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Routine | Sweep offshore (`ui/sweep.go`) | done (#581) |
 | Routine | Owned houses with move, guard and drop; owned assets (`ui/houses.go`, `ui/assets.go`) | done (#581); an asset's "feds looked" and a lost asset are not on the view |
 | Routine | Connect credit, route and market panes | done (debt #549, checkpoint #552, idle #553; #582: the connects with credit and debt and a buy on the book, the route pane, targets and driver, the market pane); the pane's next product on the ladder (`ui/unlocks.go` `nextProductNote`) open #578 |
-| Money | Wash audit odds, throughput, pile rot, tax | open #577 |
+| Money | Wash audit odds, throughput, pile rot, tax | done (#577: the ledger's audit, capacity and legit line, the pile's weight and rot, the tax a city at a time, a front's washes at the dial with the accountants' share and its audit; a front's washed today open #588) |
 | Money | Presets and upgrades in readable names | done (#582) |
 | Endings | The score (÷ 1 + bodies) on every way out and the ending screen | done (#554) |
 | Endings | Ending cards' terms and each exit's confirm (`ui/exit.go`) | done (#548; street-window words and reign income #554) |

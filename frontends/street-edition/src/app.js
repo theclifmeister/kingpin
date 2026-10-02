@@ -409,7 +409,7 @@ function renderEmpire() {
     .map((f) => {
       const own = v.fronts.find((x) => x.id === f.ID),
         level = own ? query("rules.laundering.levels", own.id, 1) : null;
-      return `<article class="card" id="front-${esc(f.ID)}"><div class="card-top">${icon("shop")}<span class="tag ${own ? "" : "gold"}">${own ? "LEVEL " + own.level : "BUSINESS OPPORTUNITY"}</span></div><h3>${esc(f.Name)}</h3><p class="front-role">${esc(engineInfo.frontRoles[f.ID] || "")}</p><p>Base capacity ${money(f.Throughput)} / day<br>Base upkeep ${money(f.Upkeep)} clean / day</p>${own ? `${frontStatusHTML(own)}<span class="subtle-text">${money(own.washed)} washed</span><div class="card-actions">${btn(level.Levels > 0 ? "Invest " + money(level.Cost) : "Maximum level", "invest", own.id, "small", level.Levels === 0 || v.you.clean_cash < level.Cost || !!v.over)}</div>` : `${frontOfferHTML(f, p)}<div class="row"><strong class="price">${money(f.Cost)}</strong>${btn("Buy business", "buy-front", f.ID, "small", v.you.dirty_cash < f.Cost || !!wash.offerLock(v, f) || !!v.over)}</div>`}</article>`;
+      return `<article class="card" id="front-${esc(f.ID)}"><div class="card-top">${icon("shop")}<span class="tag ${own ? "" : "gold"}">${own ? "LEVEL " + own.level : "BUSINESS OPPORTUNITY"}</span></div><h3>${esc(f.Name)}</h3><p class="front-role">${esc(engineInfo.frontRoles[f.ID] || "")}</p><p>Base capacity ${money(f.Throughput)} / day<br>Base upkeep ${money(f.Upkeep)} clean / day<br>Base audit risk ${wash.offerAudit(f)} / day</p>${own ? `${frontStatusHTML(own)}${frontRowsHTML(own, f)}<span class="subtle-text">${money(own.washed)} washed</span><div class="card-actions">${btn(level.Levels > 0 ? "Invest " + money(level.Cost) : "Maximum level", "invest", own.id, "small", level.Levels === 0 || v.you.clean_cash < level.Cost || !!v.over)}</div>` : `${frontOfferHTML(f, p)}<div class="row"><strong class="price">${money(f.Cost)}</strong>${btn("Buy business", "buy-front", f.ID, "small", v.you.dirty_cash < f.Cost || !!wash.offerLock(v, f) || !!v.over)}</div>`}</article>`;
     })
     .join(
       "",
@@ -422,19 +422,28 @@ function renderEmpire() {
     .join("")}</div>`;
 }
 // The wash, the till and the road (#553), as the TUI's ledger words
-// them (wash.js): the till and its control, the wash idle under it, a
-// route waiting on a lot, the fronts the night is expected to shut; a
+// them (wash.js): the audit odds, capacity and legit income (#577); the
+// till and its control; the pile's rot, the wash idle under it, a route
+// waiting on a lot, the fronts the night is expected to shut, the tax; a
 // front's status and why; an offer's terms, its lock and its shut.
 const tone = (t) => ({ warn: "warn-text", danger: "danger-text", bad: "danger-text", subtle: "subtle-text", good: "good-text", gold: "warn-text", road: "subtle-text" })[t] || "";
 function washPanelHTML(p) {
   const t = wash.till(query),
     lines = wash.washLines(v, query, p);
-  return `<section class="paper wash-panel" id="till"><div class="eyebrow">THE WASH AND THE TILL</div><div class="row"><span>The till${t.set ? "" : ' <small class="subtle-text">(the float)</small>'}</span><b>${money(t.till)} dirty kept</b></div>${t.line > t.till ? `<div class="row"><span>The contracts' morning</span><b>${money(t.outlay)} kept back</b></div>` : ""}<p class="subtle-text">${esc(wash.tillWords(query))}</p>${lines.map((l) => `<p class="wash-line"><small>${esc(l.label.toUpperCase())}</small> <span class="${tone(l.tone)}">${esc(l.text)}</span><span class="subtle-text">${esc(l.more)}</span></p>`).join("")}<p>${esc(wash.tonight(v, query))}</p><label class="row till-set"><input id="till-amount" aria-label="The till, in dirty dollars" type="number" min="0" step="1000" placeholder="blank = the float"${lines.find((l) => l.raise) ? ` value="${lines.find((l) => l.raise).raise}"` : ""}>${btn("Set the till", "set-till", "", "small", !!v.over)}</label><p class="subtle-text">${esc(wash.tillRules(query))}</p></section>`;
+  return `<section class="paper wash-panel" id="till"><div class="eyebrow">THE WASH AND THE TILL</div><p class="subtle-text">${esc(wash.odds(query))}</p><div class="row"><span>The till${t.set ? "" : ' <small class="subtle-text">(the float)</small>'}</span><b>${money(t.till)} dirty kept</b></div>${t.line > t.till ? `<div class="row"><span>The contracts' morning</span><b>${money(t.outlay)} kept back</b></div>` : ""}<p class="subtle-text">${esc(wash.tillWords(query))}</p>${lines.map((l) => `<p class="wash-line"><small>${esc(l.label.toUpperCase())}</small> <span class="${tone(l.tone)}">${esc(l.text)}</span><span class="subtle-text">${esc(l.more)}</span></p>`).join("")}<p>${esc(wash.tonight(v, query))}</p><label class="row till-set"><input id="till-amount" aria-label="The till, in dirty dollars" type="number" min="0" step="1000" placeholder="blank = the float"${lines.find((l) => l.raise) ? ` value="${lines.find((l) => l.raise).raise}"` : ""}>${btn("Set the till", "set-till", "", "small", !!v.over)}</label><p class="subtle-text">${esc(wash.tillRules(query))}</p></section>`;
 }
 function frontStatusHTML(f) {
   const st = wash.frontStatus(v, query, f),
     covered = wash.coveredNights(v, query, f);
   return `<p class="front-status ${tone(st.tone)}"><b>${esc(st.text)}</b>${covered ? `<br><small class="subtle-text">Upkeep covered ${plural(covered, "more night")}</small>` : ""}</p>`;
+}
+// frontRowsHTML is an owned front's wash (#577): its real throughput
+// at the dial and its audit odds.
+function frontRowsHTML(f, o) {
+  return `<p class="front-rows">${wash
+    .frontRows(v, query, f, o)
+    .map(([k, t]) => `<small class="subtle-text">${esc(k)}</small> ${esc(t)}`)
+    .join("<br>")}</p>`;
 }
 function frontOfferHTML(o, p) {
   const lock = wash.offerLock(v, o);
