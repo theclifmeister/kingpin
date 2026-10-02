@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577 and #576. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576 and #578. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -51,7 +51,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Routine | The cart from the view, with each line's take and remove (`ui/cart.go`) | done (#556: orders, standing orders and contracts; #582: the day's buys by hand, on credit and by contract this morning, each returned) |
 | Routine | Sweep offshore (`ui/sweep.go`) | done (#581) |
 | Routine | Owned houses with move, guard and drop; owned assets (`ui/houses.go`, `ui/assets.go`) | done (#581); an asset's "feds looked" and a lost asset are not on the view |
-| Routine | Connect credit, route and market panes | done (debt #549, checkpoint #552, idle #553; #582: the connects with credit and debt and a buy on the book, the route pane, targets and driver, the market pane); the pane's next product on the ladder (`ui/unlocks.go` `nextProductNote`) open #578 |
+| Routine | Connect credit, route and market panes | done (debt #549, checkpoint #552, idle #553; #582: the connects with credit and debt and a buy on the book, the route pane, targets and driver, the market pane; #578: the pane's next product on the ladder, `ui/unlocks.go` `nextProductNote`) |
 | Money | Wash audit odds, throughput, pile rot, tax | done (#577: the ledger's audit, capacity and legit line, the pile's weight and rot, the tax a city at a time, a front's washes at the dial with the accountants' share and its audit; a front's washed today open #588) |
 | Money | Presets and upgrades in readable names | done (#582) |
 | Endings | The score (÷ 1 + bodies) on every way out and the ending screen | done (#554) |
@@ -62,10 +62,23 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Rivals | War declare and call-off with the confirm (`ui/rivals.go`) | done (#554) |
 | Rivals | Propose with standard terms and odds; live deal terms (`deal_terms`) | done (#554) |
 | Rivals | Faction detail: muscle, stance, mood, allies, stats | done (#554) |
-| Progression | Stage interstitial and "new" mark (`v.stage`, since #550) | open #578 |
+| Progression | Stage interstitial and "new" mark (`v.stage`, since #550) | done (#578) |
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# The stage and the new mark (#578, no version moved)
+
+The web reads view 15's `stage` (`Session.stageView`) and the ladder, in `src/stage.js`, pure:
+
+- The interstitial (`ui/stage.go`, #149, #525, #537): `STAGE 2 · CREW`, the blurb, the text as one paragraph, OPENED, the pointer to the lanes on The empire while the exports alert stands on the stage the run is in, and NEXT (`Session.StageNext`, so the `crossed the line already` form too). The morning a stage is pending it opens before the card, after the day ends and on load; closing it, by Carry on, ×, Esc or the backdrop, calls `see_stage` and goes on to the card. A reload with it still open shows it again, as the TUI reopens a stage saved on the modal; once closed, a reload does not.
+- The new mark: the header's tier reads `Crew · new` while the stage is not yet seen, as the TUI's tier fact and STREET title do.
+- The market pane's next product (`ui/unlocks.go` `nextProductNote`): the last of a product's Notes, `Heroin lists at $3,000 peak cash ($2,500 to go).`, with `; the supplier here will not sell it, the road brings it` where the city's connect will not, and nothing once the ladder is listed. The view does not carry the ladder, so `build.py` puts it in `engine-info.js` from `market.toml` (`ladder`, the file's order with each `unlock_cash`) and `city.toml` (`noSupply`, a city's `no_supply` products), as #551 and #581 carry tuning; amounts are `format.Cash`'s (`wash.js` `cash`).
+
+Checks:
+
+- `smoke.mjs`: day 0 has no stage, no mark and the Heroin line with its distance; a city listing all but Designer reads the honest form, a city listing the ladder reads nothing; seed 41 with one hire on day 0 enters stage 2 the next morning: `STAGE 2 · CREW`, the words clean, the tier marked new, no lanes before the Cartel (and the lanes where the exports alert stands); the stage survives a save round trip until `see_stage`, and after it the mark and the stage are gone, through a save too.
+- Chromium (Playwright headless, 1280×900 and 390×800), a fresh seed-41 run: Weed's pane ends `Heroin lists at $3,000 peak cash ($2,500 to go).`; after a hire and End the day the interstitial opens (`STAGE 2 · CREW` with its blurb, text, two OPENED lines and NEXT `Move $25K: the laundromat opens; …`) and the tier reads `Crew · new`; a reload opens it again; Carry on closes it, the tier reads `Crew` and `v.stage` is gone; a reload then opens nothing. Esc closes and marks it seen the same way. No page errors; no horizontal scroll at 390.
 
 # The crew's last words (#576, protocol 28 / view 21)
 
@@ -104,7 +117,7 @@ Checks:
 - `smoke.mjs`: on the 45-day seed-41 run, every connect's note, pane, blurb, rules and how-to-buy, and every product's pane, ELSEWHERE and NOTES read clean; a cash buy costs the page's quote, shows in the cart from `buys` and is returned with its refund; a buy on Cass's book costs the credit quote, shows as a credit line (`on the book`, the totals `on credit`) and is returned off the book; the room where you stand is counted without your carry; every route's pane reads, a days target is set (`3d (≈N) Weed`) and cleared; every preset's changes are named without an id; every prerequisite is an upgrade's name.
 - Chromium (Playwright headless, 1280×900 and 390×900) on that run at day 45 with 3 Weed bought, 2 on Cass's book, a 2-day Coast Road target and a 30 Weed contract: the SUPPLIERS block reads `Owe $25, due in 7 days` and `Cass 50 1,495 55 owe $25 by d52`; the cart `Buying 2 lines for $57 (1 on credit) · 1 contract kept`, `Buy 3 Weed · $10.67 · $32`, `Credit 2 Weed · $12.50 · $25 on the book`; Cass's pane `REL 55 · neutral`, `PRICE ~54% of street`, `~53% at rel 60`, `TODAY 1,495 of 1,500 left`, `CREDIT $2,975 of $3,000`, `×1.15/u, due d52 with the debt`, `DEBT $25 due d52, in 7 days`; Weed's pane `GLUT 0.3%`, `MARGIN +81% over supplier`, `DEMAND ~62/day on 1 corner`, `BAYPORT $30.19 · sup $16.39`; the buy on credit `$49: $12.19 a unit, ×1.15 the cash $10.60`, `Due day 52 · $2,975 of the book left`, answered `Bought 4 Weed from Cass on credit: $49 on the book, due day 52.`, and its return `Returned 6 Weed: off the book.`; the cash line's `Returned 3 Weed, $32 back.`; the routes `DAYS 2 · capacity 60`, `FARE $8/u · seized ?`, `TARGET 2d (≈124) Weed`, `DRIVER nobody`; the target dialog `TODAY 3d ≈ 186 units` and `SHORT 183: 0 from the Bayport stash, 183 with nothing to ship + $1,464 fares`, answered `Coast Road keeps Eastside at 3 days of Weed's demand (≈186 today): it sends the shortfall every day.`; the driver with none on the payroll `Nobody to put on the road: no drivers. Hire one on Your people.`; Quiet trading's review `launder dial normal careful`, `route Coast Road normal slow`; the prerequisites `Stash spot`, `Supplier contact`; leaving Eastside asks first, `The Weed contract (keep 30) has room for 0 once you go: your carry leaves with you.` No page errors; no horizontal scroll at 390.
 
-Not covered: the market pane's next product on the ladder (`nextProductNote`, folded into #578), the lieutenant's buy in a city you are not in (the market tab is the city you stand in), and saving a preset of your own (a TUI-profile feature).
+Not covered: the lieutenant's buy in a city you are not in (the market tab is the city you stand in), and saving a preset of your own (a TUI-profile feature).
 
 # The sweep, the houses and the assets (#581, protocol 28 / view 19)
 
