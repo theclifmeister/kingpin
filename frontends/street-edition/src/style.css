@@ -1437,6 +1437,22 @@ button.alert-item {
 .headline-link:hover {
   background: #d9ab4612;
 }
+/* A report line's pointer (#560): the tab it points at, after the words. */
+.report-link {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #d9ab46;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.report-link:hover {
+  background: #d9ab4612;
+}
 /* The alerts by class (#549): a danger in red, a notice quiet; the
    warrant on the risk panel; the thing an alert lands on, picked out. */
 .alert-item.danger,

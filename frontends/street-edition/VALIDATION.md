@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578 and #575. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575 and #560. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -10,7 +10,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 |---|---|---|
 | Sale | The sell dial offers Normal (`ui/dialogs.go`) | done (#548) |
 | Report | The MONEY section: itemised lines, cash before→after (`ui/report.go`) | done (#548) |
-| Report | Lines that name TUI screens and keys (`sim/news`) | open #560 |
+| Report | Lines that name TUI screens and keys (`sim/news`) | done (#560: the words name none; a link to the tab after the line, none for the intel screen the web lacks) |
 | Cards | A card's outcome as WHAT HAPPENED (`ui/card.go`) | done (#548) |
 | New run | Six characters with blurbs and starts (`ui/newrun.go`) | done (#548) |
 | Alerts | Dangers and notices styled apart (#504, #492) | done (#549) |
@@ -67,6 +67,18 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
 
+# Where a report line points (#560, protocol 28 / view 22)
+
+The builder now accepts view 22: a report section's `points` (`{line, at, kind, act}`) and a lead line's `at`. About fifteen report lines named TUI screens and keys (`on the ledger screen (7)`, `(map, r)`, `(2, d)`, `(f)`, `walk away on the dashboard`), which the page printed as they came. The user ruled (2026-10-02) that each line carries an act and each front end words its own pointer: the words now name no screen, the TUI puts its key hint back at `at` (`ui/report.go` `pointerWords`), and the page adds a link after the line. No sim changed; `TestSeedDigest` moved by the report's shape and words alone (with `World.Report` set aside it is main's on all sixty days), `TestMoneyCurve` did not.
+
+- `src/report.js`: a section line's point (`pointOf`), the point as the alert `landing()` reads (`pointAlert`, null for the TUI's intel screen, which has no tab here, so a spy's and a lure's lines read whole), and the link's words, the tab's name (`linkWords`: `The empire →`).
+- `src/landing.js`: the point kinds whose tab is not their screen's: a front and an asset on The empire (an asset in Properties), a seizure's dial in the market's transport routes (`open: "routes"`); the reign and going straight land on Ledger's walk away as their alerts do; `scouts` with no faction picks nothing out.
+
+Checks:
+
+- `smoke.mjs`: every point kind lands on its tab, opens what it names and is linked by the tab's name (the POINTS table); the intel points have no link; a section without points (a report from before view 22) has none; on the 45-day seed-41 run every section carries `points`, each on a line it has, and no line names a TUI screen or key.
+- Chromium (Playwright headless, 1280×900 and 390×844) on a crafted save (the `boss` policy, seed 4, day 15, whose report has a front unlocked and a buyer's offer): the paper reads `The Car Wash is open to you: it washes over the till. The empire →` and `… Answer it: it stands 3 days. Market →`; the first link lands on The empire, the second on Market, and a `seizure` point opens the Transport & supply sheet on Market. No console errors; no horizontal scroll at phone width.
+- The TUI: `TestReportLinesPointAndTheTUIWordsThem` feeds each kind's event through the news sim and holds the TUI's line to its words; ten read exactly as before, five were reworded so the words stand whole (`docs/market-and-journal.md`).
 # The stage and the new mark (#578, no version moved)
 
 The web reads view 15's `stage` (`Session.stageView`) and the ladder, in `src/stage.js`, pure:
