@@ -11,6 +11,7 @@ import * as law from "./law.js?v=__BUILD_REVISION__";
 import * as endings from "./endings.js?v=__BUILD_REVISION__";
 import * as table from "./rivals.js?v=__BUILD_REVISION__";
 import * as routine from "./routine.js?v=__BUILD_REVISION__";
+import * as property from "./property.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -329,7 +330,7 @@ function renderMarket() {
     .map((p) => {
       const supplier = con.find((x) => x.prices[p.id] != null),
         room = supplier ? session.maxBuy(supplier.id, p.id) : null;
-      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small>${routineRowsHTML(c.id, p.id)}</td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${stock[p.id] || 0}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, stock[p.id] || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !routine.sellable(v, query, c.id, p.id) || !!v.over)} ${btn("Routine", "routine", p.id, "small subtle", !!v.over)}</td></tr>`;
+      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small>${routineRowsHTML(c.id, p.id)}</td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${routine.stock(v, c.id, p.id)}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, routine.stock(v, c.id, p.id) || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !routine.sellable(v, query, c.id, p.id) || !!v.over)} ${btn("Routine", "routine", p.id, "small subtle", !!v.over)}</td></tr>`;
     })
     .join(
       "",
@@ -524,7 +525,7 @@ function dealWords(kind, t = {}) {
 }
 function renderLedger() {
   const off = query("rules.laundering.offshore");
-  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${wash.reserveBlank(v, query) || ""}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${wash.cashOutBlank(v, query) || ""}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count: ${esc(endings.scoreRow(v))} today. A large empire and a high score are different goals.</div>${lawSectionHTML()}${ambitionsHTML()}${exitsHTML()}`;
+  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${wash.reserveBlank(v, query) || ""}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}<p id="sweep"><b>Sweep</b> · <span class="${v.you.sweep_on ? "good-text" : "subtle-text"}">${esc(property.sweepState(v, query))}</span> ${btn("Sweep offshore", "sweep-open", "", "small subtle", !!v.over)}</p></article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${wash.cashOutBlank(v, query) || ""}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count: ${esc(endings.scoreRow(v))} today. A large empire and a high score are different goals.</div>${lawSectionHTML()}${ambitionsHTML()}${exitsHTML()}`;
 }
 function reportHTML(r) {
   if (!r.sections)
@@ -637,7 +638,7 @@ function properties() {
   const houses = query("house_offers"),
     assets = query("asset_offers");
   modal(
-    `<div class="eyebrow">PROPERTY LEDGER</div><h2>A place of your own.</h2><h3>Houses</h3>${houses
+    `<div class="eyebrow">PROPERTY LEDGER</div><h2>A place of your own.</h2>${ownedHousesHTML()}${ownedAssetsHTML()}<h3>Houses</h3>${houses
       .map(
         (h) =>
           `<div class="report-section"><b>${esc(h.Name)}</b><p>${esc(h.City)} · ${h.Capacity} capacity · ${money(h.Price)} upfront</p>${btn(
@@ -650,7 +651,7 @@ function properties() {
       )
       .join(
         "",
-      )}<h3>Assets</h3>${assets.map((a) => `<div class="report-section"><b>${esc(a.Name)}</b><p>${money(a.Cost)} clean · ${esc(a.City)}<br><small class="subtle-text">${esc(wash.assetTerms(a))}</small></p>${btn("Purchase", "asset", a.ID, "small")}</div>`).join("")}`,
+      )}<h3>Assets</h3>${assets.filter((a) => !(v.assets || []).some((x) => x.id === a.ID)).map((a) => `<div class="report-section"><b>${esc(a.Name)}</b><p>${money(a.Cost)} clean · ${esc(a.City)}<br><small class="subtle-text">${esc(wash.assetTerms(a))}</small><br><small class="subtle-text">${esc(property.assetBlurb(v, a, engineInfo))}</small></p>${btn("Purchase", "asset", a.ID, "small")}</div>`).join("")}`,
   );
 }
 function integer(id) {
@@ -673,7 +674,7 @@ function exportFile() {
   notify("Save exported");
 }
 async function action(a, id) {
-  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id)) return;
+  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id) || propertyAction(a, id)) return;
   try {
     switch (a) {
       case "close":
@@ -771,8 +772,10 @@ async function action(a, id) {
       }
       case "sell-all": {
         const dial = $("#sale-dial").value;
-        for (const [p, n] of Object.entries(v.you.stock[city().id] || {}))
-          if (n) act("place_sell", [city().id, p, n, dial], null);
+        for (const p of city().products) {
+          const n = routine.stock(v, city().id, p.id);
+          if (n) act("place_sell", [city().id, p.id, n, dial], null);
+        }
         notify("Held stock queued for sale");
         break;
       }
@@ -1419,7 +1422,14 @@ function openAlert(a) {
     cornerModal(l.id);
     if (a.member && $("#post-member")) $("#post-member").value = a.member;
   } else if (l.open === "member" && v.crew.some((m) => m.id === l.id)) action("crew-detail", l.id);
-  else if (l.open === "properties") properties();
+  else if (l.open === "properties") {
+    properties();
+    const h = l.id && document.getElementById("house-" + l.id);
+    if (h) {
+      h.classList.add("picked");
+      h.scrollIntoView({ block: "center" });
+    }
+  }
   else if (l.open === "favour") action("favour");
   else if (l.open === "investigate" && v.crew.length && !v.over) action("investigate");
   const picked = l.select && document.getElementById(l.select);
@@ -1603,7 +1613,7 @@ function scoutFaction(a) {
 // the market's lab panel, a product page and a number page for each,
 // and the chemist's hand on the crew cards. The words are lab.js's.
 function labQualityHTML(id) {
-  const held = v.you.stock[v.you.city]?.[id];
+  const held = lab.stock(v, v.you.city, id);
   if (!held) return "";
   const q = lab.quality(v, query, v.you.city, id);
   return `<br><small class="${q < lab.streetQuality(query) ? "warn-text" : "subtle-text"}">Quality ${Math.round(q)}</small>`;
@@ -1964,6 +1974,162 @@ function routineAction(a, id) {
         if (kind === "keep") act("clear_supply", [c, p], routine.clearedSaid(v, c, p, k?.units));
         else if (kind === "standing") act("cancel_standing", [c, p], routine.cancelledSaid);
         else act("cancel_sell", [c, p], "Order cancelled.");
+        break;
+      }
+      default:
+        return false;
+    }
+  } catch (e) {
+    notify(e.message, true);
+  }
+  return true;
+}
+
+// The sweep, the houses and the assets (#581), worded by property.js as
+// the TUI's sweep dialog, STASH table, move, guard and drop dialogs and
+// ASSETS block word them.
+function sweepDialog() {
+  modal(
+    `<div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h2>Sweep offshore</h2><p>${money(v.you.clean_cash)} clean in hand · ${money(v.you.offshore)} offshore</p><p>Sweep: <span class="${v.you.sweep_on ? "good-text" : "subtle-text"}">${esc(property.sweepState(v, query))}</span></p><label>Keep in hand <small class="subtle-text">up to ${money(property.sweepMax(v))}</small><input id="sweep-keep" data-input="sweep" type="number" min="0" step="1000" aria-label="Clean cash the sweep keeps in hand" placeholder="blank = the upkeep" value="${v.you.sweep_on && v.you.sweep_keep > 0 ? v.you.sweep_keep : ""}"></label><div id="sweep-preview"></div><p class="subtle-text">${esc(property.sweepRules(query))}</p><p class="danger-text" id="sweep-error"></p><div class="card-actions">${btn(v.you.sweep_on ? "Change the line" : "Turn the sweep on", "sweep-set", "", "primary", !!v.over)}${v.you.sweep_on ? btn("Turn it off", "sweep-stop", "", "subtle", !!v.over) : ""}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  sweepPreview();
+}
+function sweepPreview() {
+  const r = property.readSweep(v, $("#sweep-keep").value);
+  $("#sweep-preview").innerHTML = rowsHTML(property.sweepLines(v, query, r.err ? 0 : r.keep));
+  $("#sweep-error").textContent = "";
+}
+// ownedHousesHTML is the houses you lease (the TUI's STASH table and a
+// house's pane): the status, what it holds, the rent, the guard, the
+// robbery odds, and move, guard and drop.
+function ownedHousesHTML() {
+  if (!v.houses?.length) return "";
+  return `<h3>Your houses</h3>${v.houses
+    .map((h) => {
+      const [st, stTone] = property.houseStatus(h);
+      return `<div class="report-section" id="house-${esc(h.id)}"><div class="row"><b>${esc(h.name)}</b><span class="tag">${esc(cityName(h.city))}</span></div><p class="${tone(stTone)}">${esc(st)}</p>${rowsHTML(property.houseRows(v, query, h))}${h.known ? `<p class="danger-text">${esc(property.knownWords)}</p>` : ""}<div class="card-actions">${btn("Move stock", "move-open", h.city, "small", !!property.moveRefusal(v, h.city) || !!v.over)}${btn("Guard", "guard-open", h.id, "small subtle", !!v.over)}${btn("Drop", "drop-house", h.id, "small subtle", !!v.over)}</div></div>`;
+    })
+    .join("")}`;
+}
+// ownedAssetsHTML is the assets you own: what each does, its status,
+// its upkeep and heat floor, when it was bought.
+function ownedAssetsHTML() {
+  if (!v.assets?.length) return "";
+  return `<h3>Your assets</h3>${v.assets
+    .map((a) => {
+      const [st, stTone] = property.assetStatus(v, a);
+      return `<div class="report-section" id="asset-${esc(a.id)}"><b>${esc(a.name)}</b><p class="${tone(stTone)}">${esc(st)}</p><p class="subtle-text">${esc(property.assetBlurb(v, a, engineInfo))}</p>${rowsHTML(property.assetRows(v, query, a))}</div>`;
+    })
+    .join("")}`;
+}
+// moveDialog is the move (ui/houses.go): from, to, the product and the
+// quantity, with what the destination holds and the drive's heat.
+function moveDialog(cityId, from = null) {
+  const sources = property.places(v, cityId);
+  from = from ?? sources[0];
+  const dests = property.places(v, cityId, from),
+    products = v.cities.find((c) => c.id === cityId).products.filter((p) => property.held(v, cityId, from, p.id) > 0),
+    opt = (id, sel) => `<option value="${esc(id)}" ${id === sel ? "selected" : ""}>${esc(property.placeName(v, id))} · ${property.placeHolds(v, cityId, id).units}/${property.placeHolds(v, cityId, id).capacity}</option>`;
+  modal(
+    `<div class="eyebrow">MOVE STOCK</div><h2>${esc(cityName(cityId))}</h2><label>From<select id="move-from" data-change="move-from" data-city="${esc(cityId)}">${sources.map((p) => opt(p, from)).join("")}</select></label><label>To<select id="move-to" data-input="move">${dests.map((p) => opt(p, dests[0])).join("")}</select></label><label>Product<select id="move-product" data-input="move">${products.map((p) => `<option value="${esc(p.id)}">${esc(p.name)} · ${property.held(v, cityId, from, p.id)}</option>`).join("")}</select></label><label>Quantity<input id="move-qty" data-input="move" type="number" min="1" placeholder="blank = all"></label><div id="move-preview"></div><p class="danger-text" id="move-error"></p><div class="card-actions">${btn("Move", "move-submit", cityId, "primary", !!v.over)}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  movePreview();
+}
+function moveForm() {
+  const city = $("#move-from").dataset.city,
+    from = $("#move-from").value,
+    to = $("#move-to").value,
+    product = $("#move-product").value,
+    most = product ? property.moveMax(v, city, from, to, product) : 0,
+    raw = $("#move-qty").value.trim(),
+    n = raw === "" ? most : Number(raw);
+  return { city, from, to, product, most, n, err: !product ? "Nothing to move." : !Number.isSafeInteger(n) || n <= 0 ? (most <= 0 ? `${property.placeName(v, to)} has no room for it.` : "Enter a whole number above zero.") : n > most ? `At most ${most} can move.` : "" };
+}
+function movePreview() {
+  const f = moveForm();
+  $("#move-qty").max = f.most;
+  $("#move-preview").innerHTML = `<p class="subtle-text">${esc(property.moveNote(v, f.city, f.to, engineInfo))}</p>${f.product && !f.err ? rowsHTML([["heat", property.moveHeatLine(query, f.city, f.product, f.n), "subtle"]]) : ""}`;
+  $("#move-error").textContent = "";
+}
+// guardDialog is the guard picker: nobody, or an enforcer with where
+// they are now.
+function guardDialog(id) {
+  const h = v.houses.find((x) => x.id === id),
+    rows = property.guardRows(v, h);
+  modal(
+    `<div class="eyebrow">SOMEONE INSIDE</div><h2>Guard ${esc(h.name)}</h2><p class="subtle-text">${esc(rows.length > 1 ? property.guardAsk(h) : property.noGuards)}</p>${rows
+      .map((r) => `<button class="choice" data-action="guard-set" data-id="${esc(id)}|${r.id}"><b>${esc(r.name)}</b>${r.skill != null ? ` · skill ${r.skill}` : ""} <span class="${tone(r.where[1])}">${esc(r.where[0])}</span></button>`)
+      .join("")}<div class="card-actions">${btn("Back", "properties", "", "subtle")}</div>`,
+  );
+}
+document.addEventListener("input", (e) => {
+  const kind = e.target.dataset?.input;
+  if (kind === "sweep") sweepPreview();
+  else if (kind === "move") movePreview();
+});
+document.addEventListener("change", (e) => {
+  if (e.target.dataset?.change === "move-from") moveDialog(e.target.dataset.city, e.target.value);
+});
+function propertyAction(a, id) {
+  try {
+    switch (a) {
+      case "sweep-open":
+        sweepDialog();
+        break;
+      case "sweep-set": {
+        const r = property.readSweep(v, $("#sweep-keep").value);
+        if (r.err) {
+          if (r.field !== undefined) $("#sweep-keep").value = r.field;
+          $("#sweep-error").textContent = r.err;
+          break;
+        }
+        act("set_sweep", [r.keep], property.sweepSaid(query, r.keep));
+        break;
+      }
+      case "sweep-stop":
+        act("stop_sweep", [], property.sweepOffSaid);
+        break;
+      case "move-open": {
+        const why = property.moveRefusal(v, id);
+        if (why) throw Error(why);
+        moveDialog(id);
+        break;
+      }
+      case "move-submit": {
+        const f = moveForm();
+        if (f.err) {
+          $("#move-error").textContent = f.err;
+          break;
+        }
+        const n = act("move", [f.city, f.from, f.to, f.product, f.n], null, { close: false });
+        if (n !== null) {
+          notify(property.movedSaid(v, query, f.city, f.from, f.to, f.product, n === true ? f.n : n));
+          properties();
+        }
+        break;
+      }
+      case "guard-open": {
+        const h = v.houses.find((x) => x.id === id);
+        if (!v.crew.some((m) => m.role === "enforcer") && !h.guard) throw Error(property.noGuards);
+        guardDialog(id);
+        break;
+      }
+      case "guard-set": {
+        const [hid, mid] = id.split("|"),
+          h = v.houses.find((x) => x.id === hid);
+        if (act("guard", [hid, Number(mid)], null, { close: false }) !== null) {
+          notify(property.guardSaid(v, query, h, Number(mid)));
+          properties();
+        }
+        break;
+      }
+      case "drop-house": {
+        const h = v.houses.find((x) => x.id === id),
+          units = property.houseUnits(h),
+          [ask, what] = property.dropLines(h);
+        confirm(`Drop ${h.name}?`, [ask, units > 0 ? [what, "danger-text"] : what], () => {
+          if (act("drop", [id], null) !== null) notify(property.droppedSaid(h, units));
+        });
         break;
       }
       default:

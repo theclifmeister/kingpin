@@ -39,7 +39,8 @@ export function contract(v, city, id) {
 export const standingQty = (o) => (o.all ? "all" : String(o.qty));
 export const dialShort = (d) => (d === "aggressive" ? "aggr." : d);
 
-// stock is what is stashed; landing is what lands in the city tonight
+// stock is what is stashed, the street and the houses (World.Stock);
+// landing is what lands in the city tonight
 // after the sales (World.Landing: the road's shipments, the chemist's
 // batches); road is what of a contract's shortfall is on the road
 // (World.Road, #503).

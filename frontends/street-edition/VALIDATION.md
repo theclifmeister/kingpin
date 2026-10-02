@@ -49,8 +49,8 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Logistics | Route idle reasons (`ui/routes.go`) | done (#553) |
 | Routine | Standing orders (the whole stash, the edit words) and supply contracts (keep at, the morning's buy, holding on the road, the room) (`ui/market.go`, `ui/dialogs.go`) | done (#556); the room without your carry where you stand is not on the view, open #582 |
 | Routine | The cart from the view, with each line's take and remove (`ui/cart.go`) | partial (#556): orders, standing orders and contracts; the day's buys and the morning's contract buys are not on the view, open #582 |
-| Routine | Sweep offshore (`ui/sweep.go`) | open #581 |
-| Routine | Owned assets and houses | open #581 |
+| Routine | Sweep offshore (`ui/sweep.go`) | done (#581) |
+| Routine | Owned houses with move, guard and drop; owned assets (`ui/houses.go`, `ui/assets.go`) | done (#581); an asset's "feds looked" and a lost asset are not on the view |
 | Routine | Connect credit, route and market panes | partial (debt #549, checkpoint #552, idle #553); open #582 |
 | Money | Wash audit odds, throughput, pile rot, tax | open #577 |
 | Money | Presets and upgrades in readable names | open #582 |
@@ -66,6 +66,17 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# The sweep, the houses and the assets (#581, protocol 28 / view 19)
+
+The builder now accepts view 19, which adds each house's `price`, `rent`, `bought` and `unpaid` (state the engine kept; the TUI's STASH table and house pane show them). The words are in `src/property.js`, pure: the sweep dialog (`ui/sweep.go`: the line, blank the upkeep, held to the clean in hand; tonight's move and its fee; the rules), the houses (`ui/houses.go`: the status in the TUI's vocabulary, the block, the stash by product, the rent and unpaid days, the guard, the robbery odds, since when; the move with what the destination holds and the drive's heat; the guard picker with where each enforcer is; the drop's words) and the assets (`ui/assets.go`: what each does, standing or shut and for how long, upkeep, heat floor, bought). The street's capacity in the move dialog is worked back from the view (`you.room` less the houses' free room). `engine-info.js` carries `move_heat` and each asset's effect numbers from the TOML. `you.stock` is the street and the houses (`World.Stock`); its comment in `view.go` said the street, and `wash.js` added the houses again (harmless there, as it only asks for none).
+
+Checks:
+
+- `smoke.mjs`: the sweep set and stopped through the engine with its words; every asset on offer says what it does; on a seed-7 run that trades Weed until a house is on offer and paid for (day 30), the house leased shows view 19's rent, price and day, its rows, a move between the street and the house reaching its place with the street's capacity unchanged, a guard posted and taken off when there is an enforcer, and the drop; the stash counts the house.
+- Chromium (Playwright headless, 1280×900 and 390×900) on a seed-7 run with Rooms over Precinct Row leased and 5 Weed bought into it: Properties draws `Your houses` (`unknown`, `5 of 400`, `$60/day clean`, `nobody`, `0.4%/day`, `day 44 · $12,000`); Move stock offers `the street · 27/100` and the house, previews `+0.1 tonight for 4 units` and answers `Moved 4 Weed from the street to Rooms over Precinct Row. The drive is +0.1 heat tonight.`; Guard with no enforcer refuses `Nothing to post: no enforcers. Hire one on Your people.`, and as the Heir (an enforcer from day 0) posts Lolo: `Lolo is inside Rooms over Precinct Row: robbery 0.2%/day.`; the sweep at $500 previews `$1,390 moves, fee $70` and is on after a reload (`Sweep · on, keeping $500`); Drop confirms `The 9 units in it go with it. Move them out first.` and answers `Dropped Rooms over Precinct Row: 9 units went with it.`. No page errors; no horizontal scroll at 390.
+
+Not covered: the TUI's "feds looked Nd ago" on an asset and a lost asset's note (the task force's last response and the lost assets are not on the view), and the dashboard's `carrying N/M · stashed N in K houses` line (#574's dashboard facts).
 
 # The routine, part one (#556, protocol 28 / view 18)
 

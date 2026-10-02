@@ -636,10 +636,96 @@ if (!session.view.over) {
   assert.deepEqual(again.view.supply, v.supply, "the contract survives the save");
   assert.deepEqual(again.view.standing, v.standing, "the standing order survives the save");
 }
+// The sweep, the houses and the assets (#581): property.js's words on
+// the live run; a sweep set and a house leased, stocked, guarded and
+// dropped as the page does it, through the engine.
+if (!session.view.over) {
+  const property = await import(pathToFileURL(path.join(dist, "property.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  const q = (m, ...p) => session.call(m, ...p),
+    clean = (s, what) => assert.ok(typeof s === "string" && !/undefined|NaN|\[object/.test(s), `${what}: ${s}`);
+  let v = session.refresh();
+  assert.equal(property.readSweep(v, "").keep, 0, "blank keeps the upkeep alone");
+  assert.equal(property.readSweep(v, String(property.sweepMax(v) + 1)).field, property.sweepMax(v), "over the clean in hand is held to it");
+  for (const [, t] of property.sweepLines(v, q, 0)) clean(t, "a sweep line");
+  clean(property.sweepRules(q), "the sweep's rules");
+  q("set_sweep", 0);
+  v = session.refresh();
+  assert.ok(v.you.sweep_on, "the sweep is on");
+  assert.match(property.sweepState(v, q), /^on, keeping \$[\d,]+$/);
+  clean(property.sweepSaid(q, 0), "the sweep's answer");
+  q("stop_sweep");
+  assert.ok(!session.refresh().you.sweep_on, "the sweep is off");
+  for (const a of q("asset_offers") || []) clean(property.assetBlurb(v, a, engineInfo), `${a.ID}'s blurb`), assert.ok(property.assetBlurb(v, a, engineInfo), `${a.ID} says what it does`);
+  // A house, on a run of its own (seed 7 trades weed until a house is on
+  // offer and paid for, day 30): leased, stocked, the stock moved,
+  // guarded and dropped.
+  const rich = new Session(globalThis.kingpin),
+    r = (m, ...p) => rich.call(m, ...p);
+  rich.newRun(7);
+  let offer = null;
+  for (let i = 0; i < 120 && !rich.view.over && !offer; i++) {
+    if (rich.view.card) rich.choose(0);
+    v = rich.refresh();
+    offer = (r("house_offers") || []).filter((h) => h.City === v.you.city && h.Price <= v.you.dirty_cash && h.UnlockCash <= v.you.peak_cash).sort((a, b) => a.Price - b.Price)[0];
+    if (offer) break;
+    const sup = v.connects.find((x) => x.city === v.you.city && x.open && !x.wholesale),
+      n = Math.floor(rich.maxBuy(sup.id, "weed").max * 0.8);
+    if (n) rich.buy(sup.id, "weed", n);
+    v = rich.refresh();
+    for (const [p, n] of Object.entries(v.you.stock[v.you.city] || {})) if (n) rich.sell(v.you.city, p, n, "normal");
+    rich.endDay();
+  }
+  assert.ok(offer, "the trading run can lease a house");
+  {
+    r("buy_house", offer.ID);
+    const sup = rich.refresh().connects.find((x) => x.city === rich.view.you.city && x.open && !x.wholesale);
+    rich.buy(sup.id, "weed", Math.min(5, rich.maxBuy(sup.id, "weed").max));
+    v = rich.refresh();
+    const h = v.houses.find((x) => x.id === offer.ID);
+    assert.ok(h && h.rent === offer.Rent && h.price === offer.Price && h.bought === v.day, "view 19 carries the house's rent, price and day");
+    assert.deepEqual(property.houseStatus(h), ["unknown", "good"]);
+    for (const [, t] of property.houseRows(v, r, h)) clean(t, "a house row");
+    const city = v.you.city,
+      routine = await import(pathToFileURL(path.join(dist, "routine.js")));
+    // The stash is the street and the houses (`you.stock`, World.Stock);
+    // the street is what the houses do not hold.
+    assert.equal(routine.stock(v, city, "weed"), property.held(v, city, "", "weed") + (h.stock.weed || 0), "the stash is the street and the house");
+    {
+      const src = property.places(v, city)[0],
+        dst = property.places(v, city, src)[0],
+        product = "weed",
+        n = Math.min(3, property.moveMax(v, city, src, dst, product));
+      clean(property.moveNote(v, city, dst, engineInfo), "the move's note");
+      const before = property.placeHolds(v, city, ""),
+        had = property.held(v, city, dst, product);
+      const moved = r("move", city, src, dst, product, n);
+      v = rich.refresh();
+      assert.equal(property.held(v, city, dst, product), had + moved, "the move reached its place");
+      assert.equal(property.placeHolds(v, city, "").capacity, before.capacity, "the street's capacity does not move with a move");
+      clean(property.movedSaid(v, r, city, src, dst, product, moved), "the move's answer");
+    }
+    const guard = property.guardRows(v, h);
+    assert.equal(guard[0].id, 0, "nobody is the first guard");
+    const enforcer = guard.find((g) => g.id && !v.crew.find((m) => m.id === g.id).jailed);
+    if (enforcer) {
+      r("guard", h.id, enforcer.id);
+      v = rich.refresh();
+      assert.equal(v.houses.find((x) => x.id === h.id).guard, enforcer.id, "the guard is inside");
+      clean(property.guardSaid(v, r, h, enforcer.id), "the guard's answer");
+      r("guard", h.id, 0);
+    }
+    const units = property.houseUnits(rich.refresh().houses.find((x) => x.id === h.id));
+    for (const l of property.dropLines(h)) clean(l, "the drop's words");
+    r("drop", h.id);
+    assert.ok(!rich.refresh().houses.some((x) => x.id === h.id), "dropped");
+    clean(property.droppedSaid(h, units), "the drop's answer");
+  }
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, and save round-trip.`,
 );
 process.exit(0);
