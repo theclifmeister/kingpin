@@ -37,7 +37,7 @@ A quiet day says who sells nothing (a lieutenant's corners too) and asks first w
 
 ## Boundaries and artwork
 
-This UI does not yet expose every engine command: undercover work, the offshore sweep, houses' moves and guards, and connects' credit are not included (#556). Built-in presets can operate on routines in imported saves; custom saved presets remain a TUI-profile feature. Bayport reuses the city illustration. Optional, feature-detected WebMCP tools read state and navigate sections; they do not play turns. `?test=1` exposes a local browser test hook.
+This UI does not yet expose every engine command: undercover work, the offshore sweep, houses' moves and guards, and connects' credit are not included (#581, #582). Built-in presets can operate on routines in imported saves; custom saved presets remain a TUI-profile feature. Bayport reuses the city illustration. Optional, feature-detected WebMCP tools read state and navigate sections; they do not play turns. `?test=1` exposes a local browser test hook.
 
 `src/assets/city.webp` is original AI-generated artwork created for this frontend in the accompanying development session. It is decorative: the labelled controls carry real game state. It is not a geographic map. Go's loader license is copied into the build output. No Sites project metadata or user playthrough saves are included.
 
