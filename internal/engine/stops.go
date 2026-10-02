@@ -3,7 +3,6 @@ package engine
 import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
-	"github.com/theclifmeister/kingpin/internal/game"
 )
 
 // StopKind is why a fast-forward (#116) stops on a day.
@@ -28,28 +27,24 @@ type Stop struct {
 }
 
 // Danger reports whether the stop is one the run can end on soon (#504):
-// a danger alert (Alert.Danger), or a warrant signed, a task force
-// formed, an investigation opened or the police past a patrol. A front
-// end words and styles it apart from the rest, with its numbers.
+// a danger alert (Alert.Danger), or an event whose class is a danger
+// (EventClass, #541: a warrant signed, a task force formed, an
+// investigation opened or the police past a patrol). A front end words
+// and styles it apart from the rest, with its numbers.
 func (st Stop) Danger() bool {
 	switch st.Kind {
 	case StopAlert:
 		return st.Alert.Danger()
 	case StopEvent:
-		switch ev := st.Event.(type) {
-		case events.WarrantSigned, events.TaskForceFormed, events.InvestigationOpened:
-			return true
-		case events.Enforcement:
-			return ev.Level != content.Patrol
-		}
+		return EventClass(st.Event) == ClassDanger
 	}
 	return false
 }
 
-// Stop weighs the day that just ended: a new stage first, then a card
-// dealt, then an alert the morning before did not have and that is no
-// notice (Alert.Notice, #504: the till, the float, a gate within reach
-// and a full stash stand on the dashboard and never stop) (by its key, so
+// Stop weighs the day that just ended under the stop rule (stoprule.go,
+// #541): a new stage first, then a card dealt, then an alert the
+// morning before did not have and that is no notice (Alert.Notice,
+// #504: notices stand on the dashboard and never stop) (by its key, so
 // a contract due tomorrow stops once and again when it is due today,
 // and heat over the patrol line once until it drops under and comes
 // back), then the first of the day's events that StopsOn names, the
@@ -304,63 +299,11 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 	return days, Stop{Kind: StopCap}, evs
 }
 
-// StopsOn reports whether an event stops a fast-forward: a warrant signed
-// (#475), the police past
-// a patrol, the task force, an investigation opened (#343), an asset seized or the tunnel found,
-// the reign begun or broken, a faction scattered or absorbed and the
-// crown's hold begun (#530: none of them a danger), the rival moving in or eyeing a
-// corner, a faction scouting or recruiting where you earn (#341), a strike (bar a war night that held, #229), the war over
-// (bar one you called off, #520), a missed payroll (#518), a quiet
-// streak lost (while retiring is the plan or the account open: Stop's
-// serves, #519), a
-// boost that failed (#70), the police raiding a rival corner, a corner
-// taken off you, a corner of yours lost to the street, nobody working it
-// (#345) or the police clearing it (#469), a corner the rival gave up,
-// the crew quitting, defecting, arrested (#46), shot dead or retiring,
-// a spy found or a lie that bit (#45), a lieutenant walking, an audit, a
-// seizure, a deal offered or broken (an offer the faction repeated runs
-// past: Stop's news, #469), a buyer asking (where you could answer it:
-// Stop's serves, #442), a new chief or an election,
-// an envelope back, a raid that fell through (#228), the DA's file on
-// the envelopes, the officials cold, a contract or a standing order
-// short (the morning it starts and not again within OfferQuiet: news,
-// #469, #504), and a stash house robbed, hit or lost (#73). A
-// reputation axis up a band needs no action and runs past (#504: the
-// dashboard's bars say it), and so do pressure up a band (the report
-// could show it unchanged at its rounding) and a gate crossed (#519:
-// notices never stop; the report's UNLOCKED says it).
-func StopsOn(e events.Event) bool {
-	switch ev := e.(type) {
-	case events.Enforcement:
-		return ev.Level != content.Patrol
-	case events.CornerStruck:
-		return !ev.War || ev.Taken
-	case events.RivalBoosted:
-		return !ev.Taken
-	case events.CornerTaken:
-		return ev.From == game.OwnerPlayer
-	case events.CornerLost:
-		return ev.Owner == game.OwnerPlayer // nobody worked it (#345), or the police cleared it (#469)
-	case events.CrewShot:
-		return ev.Dead && !ev.Theirs
-	case events.ReignBegan:
-		return !ev.Again // the first reign of the run (#399); one begun again runs past
-	case events.RivalAbsorbed, events.HoldBegan:
-		return true // a crew scattered or finished, and the crown's hold begun (#530): the crown's count moved
-	case events.CrewPaid:
-		return ev.Short > 0 // a missed payroll (#518)
-	case events.WarEnded:
-		return !ev.Called // one you called off yourself is in the report and runs past (#520)
-	case events.WarrantSigned, events.TaskForceFormed, events.InvestigationOpened, events.AssetSeized, events.TrophySeized, events.TunnelFound,
-		events.ReignBroken, events.StraightOpened, events.StraightLapsed, events.RivalMovedIn, events.RivalEyeing,
-		events.QuietBroken, events.RivalRaided, events.RivalAbandoned, events.CrewQuit,
-		events.CrewDefected, events.CrewArrested, events.CrewRetired, events.SpyFound,
-		events.IntelFalse, events.LieutenantWalked, events.FrontAudited, events.ShipmentSeized, events.ExportSeized,
-		events.DealOffered, events.DealBroken, events.ContractOffered, events.ChiefReplaced,
-		events.DAElected, events.BribeBackfired, events.RaidFellThrough, events.LeadsFiled,
-		events.OfficialsCold, events.SupplyShort, events.StandingShort, events.HouseRobbed,
-		events.HouseRaided, events.HouseLost, events.RivalScouting, events.RivalRecruiting:
-		return true
-	}
-	return false
-}
+// StopsOn reports whether an event stops a fast-forward: whether its
+// class under the stop rule (EventClass, stoprule.go, #541) is any but
+// a notice. Stop's serves and news filter it further: a buyer asking
+// where you could answer it (#442), a quiet streak lost while retiring
+// is in play (#519), a shortfall the morning it starts and an offer the
+// faction did not just repeat (#469). A reputation axis up a band, a
+// pressure band and a gate crossed are notices (#504, #519).
+func StopsOn(e events.Event) bool { return EventClass(e) != ClassNotice }

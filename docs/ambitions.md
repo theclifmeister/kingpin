@@ -65,7 +65,7 @@ No sim reads it, and `TestSeedDigest`'s walk leaves it out (`unwalked`), so no p
   When the quiet days go back to zero the line names what reset them, `· reset by a sting in Eastside on day 41` (`quietReset`, off the laundering sim's report-only `events.QuietBroken`, `docs/laundering.md`, kept on the model as `Model.quietBroke` and never saved), while the plan is Retire clean and its quiet days are short.
 - **The report**: a `PLAN` section after `TIER`, one line: `Retire clean 0%: the account 0% · quiet days 3/14. Next, the account: $0 of $750,000.` (`Retire clean: ready. Walk away on the dashboard to take it, or play on.` once its ending is open, #498), with `, the quiet days reset by …` before the next step when the dashboard's line has it (`TestPlanShowsItsParts`).
 - **The alert**: `engine.AlertPlan` (`plan`, the quietest, its act the dashboard) appears while the pinned plan has at least one step met, keyed `plan <id>: <Reached> of <steps>`.
-  A fast-forward stops once as each step is met in order and once when the plan is done.
+  The alert is a notice under the stop rule (#541, `docs/engine.md`): a fast-forward runs past a step met and the plan done, which the dashboard shows.
   It stops again only if a step is lost and met again.
   Pinned or not, each ending the player takes has its own alert the morning it opens (#498, `docs/endings.md`): retiring's (keyed `retirement open` once ready), vanishing's (`AlertVanish`), the reign's and going straight's.
   `Alert.Ambition`, `Count` (the steps met), `Steps` and `Ready` carry it; the TUI words it `The plan, Retire clean: 1 of 2 steps met.` / `The plan, Retire clean: ready.`

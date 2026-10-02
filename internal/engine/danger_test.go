@@ -184,9 +184,11 @@ func TestQuietFastForwardStopsLittle(t *testing.T) {
 // runner near the skim line, both answers and neither a notice. 3 with
 // #530 on top: seed 11's day 120 is a faction absorbed, a stop #530 asks
 // for (the table's clock that holds the crown moved) and not a notice.
+// 2 with #541: the landed load is a notice under the stop rule, so seed
+// 11 stops 12 times, 2 on neither (the runner and the faction).
 const (
 	quietStops = 13
-	quietOther = 3
+	quietOther = 2
 )
 
 // TestDangersLead (#534): a heat line and the file near an indictment
