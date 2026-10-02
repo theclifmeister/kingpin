@@ -3406,6 +3406,12 @@
         "jailed_until": {
           "type": "integer"
         },
+        "kin": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
         "lab": {
           "type": "boolean"
         },
@@ -4457,6 +4463,15 @@
         "bodies": {
           "type": "integer"
         },
+        "capacity": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "carry_limit": {
+          "type": "integer"
+        },
         "character": {
           "type": "string"
         },
@@ -4503,6 +4518,9 @@
           "type": "string"
         },
         "peak_cash": {
+          "type": "integer"
+        },
+        "pool_day": {
           "type": "integer"
         },
         "quality": {
@@ -4600,7 +4618,10 @@
         "quality",
         "room",
         "away",
-        "street_quality"
+        "street_quality",
+        "carry_limit",
+        "capacity",
+        "pool_day"
       ],
       "type": "object"
     },
@@ -17167,5 +17188,5 @@
   },
   "protocol": 28,
   "title": "kingpind",
-  "view_version": 20
+  "view_version": 21
 }

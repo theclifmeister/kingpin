@@ -1,4 +1,4 @@
-version 20
+version 21
 .version int
 .seed uint64
 .day int
@@ -55,6 +55,10 @@ version 20
 .you.away map[string]
 .you.away{} int
 .you.street_quality float64
+.you.carry_limit int
+.you.capacity map[string]
+.you.capacity{} int
+.you.pool_day int
 .cities []
 .cities[].id string
 .cities[].name string
@@ -132,6 +136,8 @@ version 20
 .crew[].assigned int
 .crew[].route string
 .crew[].lab bool
+.crew[].kin []
+.crew[].kin[] int
 .pool []
 .pool[].id int
 .pool[].name string
@@ -157,6 +163,8 @@ version 20
 .pool[].assigned int
 .pool[].route string
 .pool[].lab bool
+.pool[].kin []
+.pool[].kin[] int
 .contracts []
 .contracts[].id int
 .contracts[].name string
