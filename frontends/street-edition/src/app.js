@@ -265,7 +265,7 @@ function renderRisk() {
       .map(alertButton)
       .join(
         "",
-      )}${lawPanelHTML()}<p class="${v.you.dirty_cash > v.law.exposure_line ? "danger-text" : ""}">Dirty cash exposure: ${money(v.you.dirty_cash)} / ${money(v.law.exposure_line)}</p>${tonightHTML()}<details id="police-risk"><summary>Understand the police risk</summary>${policeLines(
+      )}${patrolCapHTML()}${lawPanelHTML()}<p class="${v.you.dirty_cash > v.law.exposure_line ? "danger-text" : ""}">Dirty cash exposure: ${money(v.you.dirty_cash)} / ${money(v.law.exposure_line)}</p>${tonightHTML()}<details id="police-risk"><summary>Understand the police risk</summary>${policeLines(
       v,
       c.id,
     )
@@ -276,6 +276,25 @@ function renderRisk() {
   $("#lie-low").textContent = v.you.lie_low
     ? "Resume street sales"
     : "Take a quiet day";
+}
+// The dashboard's facts (#574, ui/dashboard.go streetLines): the
+// patrol's cap on the risk panel; where the enforcers go tonight and
+// the crew's trouble on the street view, the trouble on the crew tab too.
+function patrolCapHTML() {
+  const line = law.patrolCapLine(v);
+  return line ? `<p id="patrol-cap" class="danger-text">${esc(line)}</p>` : "";
+}
+function troubleHTML() {
+  const line = crew.trouble(v, query("rules.crew.tuning"), query("rules.crew.flip_line"));
+  return line ? `<div id="crew-trouble" class="tip-box warn-text" style="margin-bottom:16px">Crew: ${esc(line)}</div>` : "";
+}
+// strikeOrder is the strike queued tonight, off the memo, or undefined.
+function strikeOrder() {
+  return orders.find((o) => o.key === "strike" && o.corner);
+}
+function streetFactsHTML() {
+  const tonight = table.tonightLine(v, query, engineInfo, strikeOrder());
+  return `${tonight ? `<div id="tonight-strike" class="tip-box warn-text" style="margin-bottom:16px">${esc(tonight)}</div>` : ""}${troubleHTML()}`;
 }
 function renderBusiness() {
   let h = "";
@@ -310,10 +329,10 @@ function renderStreet() {
     .map((corner, i) => {
       const x = 12 + (corner.x / (maxX || 1)) * 72 + (corner.y % 2 ? 3 : 0),
         y = 25 + (corner.y / (maxY || 1)) * 54;
-      return `<button class="map-marker ${corner.owner}" style="left:${x}%;top:${y}%" data-action="corner" data-id="${corner.id}" aria-label="${esc(corner.name)}, ${corner.owner}"><i>${corner.owner === "player" ? "✓" : corner.owner === "rival" ? "!" : i + 1}</i><span class="pin-label">${esc(corner.name)}<small>${corner.owner === "player" ? "Yours" : corner.owner === "rival" ? "Rival ground" : "Unclaimed"}</small></span></button>`;
+      return `<button class="map-marker ${corner.owner}" style="left:${x}%;top:${y}%" data-action="corner" data-id="${corner.id}" aria-label="${esc(corner.name)}, ${corner.owner}"><i>${corner.owner === "player" ? "✓" : corner.owner === "rival" ? "!" : i + 1}</i><span class="pin-label">${esc(corner.name)}<small>${corner.owner === "player" ? "Yours" : corner.owner === "rival" ? (strikeOrder()?.corner === corner.id ? `⚔ ${esc(strikeOrder().force)} tonight` : "Rival ground") : "Unclaimed"}</small></span></button>`;
     })
     .join("");
-  return `<div class="map-frame"><img class="city-art" src="assets/city.webp" alt="Hand-drawn waterfront city in colorful ink"><div class="map-wash"></div><div class="map-badge">${esc(c.name.toUpperCase())} · ${c.id === v.you.city ? "YOU ARE HERE" : "ACROSS THE WATER"}</div>${markers}<div class="map-caption">Small beginnings. Bigger possibilities.</div></div><div class="map-legend"><div class="legend-keys"><span><i class="dot"></i>Your ground</span><span><i class="dot rival"></i>Rival ground</span><span><i class="dot none"></i>Unclaimed</span></div><span>Select a corner to act ↗</span></div>${c.id !== v.you.city ? btn("Travel to " + esc(c.name), "travel", c.id, "full") : ""}<div class="quick-actions"><button class="quick-card" data-tab="market">${icon("coin")}<div><b>Work the market</b><small>Stock up & queue sales →</small></div></button><button class="quick-card" data-tab="crew">${icon("crew")}<div><b>Meet your people</b><small>Hire, post & look after →</small></div></button><button class="quick-card" data-tab="empire">${icon("shop")}<div><b>Think bigger</b><small>Businesses & upgrades →</small></div></button></div>${dispatch()}`;
+  return `${streetFactsHTML()}<div class="map-frame"><img class="city-art" src="assets/city.webp" alt="Hand-drawn waterfront city in colorful ink"><div class="map-wash"></div><div class="map-badge">${esc(c.name.toUpperCase())} · ${c.id === v.you.city ? "YOU ARE HERE" : "ACROSS THE WATER"}</div>${markers}<div class="map-caption">Small beginnings. Bigger possibilities.</div></div><div class="map-legend"><div class="legend-keys"><span><i class="dot"></i>Your ground</span><span><i class="dot rival"></i>Rival ground</span><span><i class="dot none"></i>Unclaimed</span></div><span>Select a corner to act ↗</span></div>${c.id !== v.you.city ? btn("Travel to " + esc(c.name), "travel", c.id, "full") : ""}<div class="quick-actions"><button class="quick-card" data-tab="market">${icon("coin")}<div><b>Work the market</b><small>Stock up & queue sales →</small></div></button><button class="quick-card" data-tab="crew">${icon("crew")}<div><b>Meet your people</b><small>Hire, post & look after →</small></div></button><button class="quick-card" data-tab="empire">${icon("shop")}<div><b>Think bigger</b><small>Businesses & upgrades →</small></div></button></div>${dispatch()}`;
 }
 function dispatch() {
   const lead = v.report.lead || [],
@@ -341,7 +360,7 @@ function renderCrew() {
     most = query("rules.crew.max_crew"),
     hint = howTheyCome(v),
     warn = crew.crewWarning(v, tun);
-  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day${labHandHTML(m, true)}</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
+  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${troubleHTML()}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day${labHandHTML(m, true)}</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
 }
 // The crew tab's answers (#551, the TUI's crew screen): each member's
 // card with where they are, the SNITCH mark, the lines they cross and
@@ -580,7 +599,7 @@ function cornerModal(id) {
       ...v.crew.filter((m) => ["runner", "enforcer"].includes(m.role)),
     ];
   modal(
-    `<div class="eyebrow">ON THE CORNER</div><h2>${esc(c.name)}</h2><p>Held by ${esc(owner)} · Demand multiplier ${c.demand.toFixed(1)}×</p>${c.owner !== "rival" ? `<label>Who should work here?<select id="post-member">${postable.map((m) => `<option value="${m.id}">${esc(m.name)} · ${m.role}</option>`).join("")}</select></label>${btn("Assign to this corner", "post", c.id, "primary")}${c.owner === "player" ? btn("Abandon corner", "abandon", c.id, "subtle") : ""}` : `<div class="tip-box">Contesting territory can increase heat, evidence, and retaliation. Check your crew before committing.</div><label>Force<select id="force-dial"><option>warn</option><option>push</option><option>hit</option></select></label>${btn("Send enforcers", "strike", c.id, "primary", !v.crew.some((m) => m.role === "enforcer"))}${btn("Tip the police", "tip", c.id, "subtle")}<label>Price competition<select id="undercut-dial"><option>quiet</option><option>normal</option><option>aggressive</option></select></label>${btn("Undercut tonight", "undercut", c.id, "subtle")}`}`,
+    `<div class="eyebrow">ON THE CORNER</div><h2>${esc(c.name)}</h2><p>Held by ${esc(owner)} · Demand multiplier ${c.demand.toFixed(1)}×</p>${strikeOrder()?.corner === c.id ? `<p class="warn-text">⚔ ${esc(strikeOrder().force)} tonight</p>` : ""}${c.owner !== "rival" ? `<label>Who should work here?<select id="post-member">${postable.map((m) => `<option value="${m.id}">${esc(m.name)} · ${m.role}</option>`).join("")}</select></label>${btn("Assign to this corner", "post", c.id, "primary")}${c.owner === "player" ? btn("Abandon corner", "abandon", c.id, "subtle") : ""}` : `<div class="tip-box">Contesting territory can increase heat, evidence, and retaliation. Check your crew before committing.</div><label>Force<select id="force-dial"><option>warn</option><option>push</option><option>hit</option></select></label>${btn("Send enforcers", "strike", c.id, "primary", !v.crew.some((m) => m.role === "enforcer"))}${btn("Tip the police", "tip", c.id, "subtle")}<label>Price competition<select id="undercut-dial"><option>quiet</option><option>normal</option><option>aggressive</option></select></label>${btn("Undercut tonight", "undercut", c.id, "subtle")}`}`,
   );
 }
 // ending is the run summary (ui/summary.go, #465, #498, #518): the
@@ -705,11 +724,16 @@ async function action(a, id) {
           () => act("abandon", [id], "Corner abandoned"),
         );
         break;
-      case "strike":
-        act("send_enforcers", [id, $("#force-dial").value], "Action queued", {
-          order: { key: "strike", text: "Enforcers sent to " + id },
+      case "strike": {
+        // The memo keeps the corner and the force for the street's
+        // tonight line (#574): the view does not carry the strike.
+        const force = $("#force-dial").value,
+          c = v.cities.flatMap((x) => x.corners).find((x) => x.id === id);
+        act("send_enforcers", [id, force], "Action queued", {
+          order: { key: "strike", text: `Enforcers sent to ${c ? c.name : id}`, corner: id, force },
         });
         break;
+      }
       case "tip": {
         // The tip confirm (#552, ui/books.go tipConfirm): the police's
         // attention, when they act, the trust and the page's odds.
