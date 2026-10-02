@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574 and #577. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577 and #576. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -36,11 +36,11 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Crew | SNITCH mark; fire confirm with cost, walk and war lines | done (#551) |
 | Crew | Loyalty lines on the member; betrayal words (`ui/lieutenant.go`) | done (#551) |
 | Crew | Posts by role; jail, laid up, bail; pay dial, pay-off, N of M | done (#551) |
-| Crew | The CREW summary (`ui/crew.go`) | partial (#551); the capacity row open #576 |
-| Crew | Over-cap words on unassigning a lieutenant | open #576 |
+| Crew | The CREW summary (`ui/crew.go`) | done (#551, #576) |
+| Crew | Over-cap words on unassigning a lieutenant | done (#576) |
 | Crew | Lieutenant temper countdown | done (#551) |
-| Crew | Lieutenant "keeps" levels, pool countdown, kin | open #576 |
-| Crew | Captain picker: fixed budgets, who captains each city (`ui/captain.go`) | open #576 |
+| Crew | Lieutenant "keeps" levels, pool countdown, kin | done (#576) |
+| Crew | Captain picker: fixed budgets, who captains each city (`ui/captain.go`) | done (#576) |
 | Lab | Chemist's hand, cook and cut dialogs (`ui/quality.go`) | done (#557) |
 | Money | The till: shown, set, wash-idle and road-waits (`ui/till.go`) | done (#553) |
 | Money | Reserve, cash-out and fund keep tonight's upkeep back | done (#553; the fund #552) |
@@ -66,6 +66,17 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# The crew's last words (#576, protocol 28 / view 21)
+
+The builder now accepts view 21, which carries state the engine kept and the view did not: a member's `kin` (on the payroll and in the pool), `you.carry_limit`, `you.capacity` (`World.Capacity`, a city) and `you.pool_day` (`Crew.PoolDay`). No sim changed, so no seed-pinned number moved; `TestViewCarriesTheCrewsOddsAndEnds` pins the fields. A lieutenant's keeps needed nothing new: view 15's `supply` names the lieutenant. The words are in `src/crew.js`, pure: the CREW summary's capacity rows (`ui/crew.go` `crewSection`), the city picker's rows, the over-cap warning and words and the assign results (`ui/lieutenant.go` `viewAssign`, `unassignCapLine`, `overCapWords`, `confirmAssign`), the captain picker (`ui/captain.go`: the cities with the corners held and who captains each, opening on theirs or where they work, the fixed `Budgets` a night, the refusals, the results), a lieutenant's keeps (`lieutenantKeeps`), the pool's countdown (`viewCrew`) and kin (`ui/life.go` `kinNames`, `relation`, the ♦ mark and its legend, a face's discount). Standing a lieutenant down over the cap asks first. A lieutenant has no Captaincy button; the captain picker's budget is a select of the fixed budgets, where it was a free number.
+
+Checks:
+
+- `smoke.mjs`: on the seed-41 crew run, the capacity row reads `you.capacity` where you stand and `N yours + M crew`; the over-cap warning and words on a roster one past the cap without the slots, and none with no city or under the cap; the budgets are fixed and each worded; no captaincy for a lieutenant and why a member is not ready (loyalty and days off `rules.crew.captaincy`); the picker's rows and who captains each; the keeps with yours winning; the pool's countdown, never under a day; kin by name and the TUI's word.
+- Chromium (Playwright headless, 1280×1600 and 390×900) on a `delegated` seed-4 save at day 120 (Cal runs Eastside with five contracts; padded to 14 on a cap of 18 with Cal's 8 slots; Shorty captain of Bayport at $20,000): the CREW block reads `capacity · 1796 in Bayport`, `550 yours + 1246 crew`; the pool `new faces in 2 days`; Cal's card `Keeps 111 Weed · 43 Pills · 21 Coke · 31 Heroin · 2 Meth` and `Kin: Flaco (cousin)`; Wink in the pool `Kin: Flaco (partner) · came with the kin: fee at the discount`; the legend `♦ has kin on the payroll or looking for work`. Cal's picker warns `Off the city, the roster is 14 of 10: nobody is let go; you hire under 10.` with rows `Eastside · 2 corners · 682 units · runs: theirs now`; standing him down asks `Stand Cal down?` first and answers `Cal runs nothing now. The crew they posted stay where they are. The roster is 14 of 10: nobody is let go, and nobody is hired until it is under 10.` Cal's card has no Captaincy button; Flaco's picker refuses `Can't make Flaco captain yet: it takes loyalty 55 and 30 days on the payroll, at work.`; Shorty's opens on `Bayport · 3 corners · captain: theirs now` at `$20,000 a night`, offers `$10,000 a night | $20,000 a night | $5,000 a night | nothing: no pay-offs`, and answers `Shorty is captain of Bayport from tonight: $10,000 a night for pay-offs, keeps 2%.` No page errors; no horizontal scroll at 390.
+
+Not covered: the TUI's key hints in the refusals (`Give them one with l` reads `with Run a city`).
 
 # The dashboard's facts (#574, no version moved)
 

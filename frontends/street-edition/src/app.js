@@ -360,7 +360,16 @@ function renderCrew() {
     most = query("rules.crew.max_crew"),
     hint = howTheyCome(v),
     warn = crew.crewWarning(v, tun);
-  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${troubleHTML()}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day${labHandHTML(m, true)}</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
+  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${troubleHTML()}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town <small class="subtle-text">· new faces in ${plural(crew.poolNext(v, query("rules.crew.pool_days")), "day")}</small></h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}${kinMark(m)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day${kinHTML(m, true)}${labHandHTML(m, true)}</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>${[...v.crew, ...v.pool].some((m) => (m.kin || []).length) ? `<p class="subtle-text">${esc(crew.KIN_LEGEND)}</p>` : ""}`;
+}
+// kinMark is the mark on a name with kin (#576, ui kinGlyph), and
+// kinHTML the kin row under a member or a face (ui personLines).
+function kinMark(m) {
+  return (m.kin || []).length ? ` <span class="subtle-text" title="has kin on the payroll or looking for work">${crew.KIN}</span>` : "";
+}
+function kinHTML(m, inPool) {
+  const line = crew.kinLine(v, m, inPool);
+  return line ? `<br><small>${esc(line)}</small>` : "";
 }
 // The crew tab's answers (#551, the TUI's crew screen): each member's
 // card with where they are, the SNITCH mark, the lines they cross and
@@ -373,11 +382,10 @@ function memberCard(m, lt, tun, flip) {
   const tag = crew.crewTag(v, m, query("rules.crew.retiring", m.id)),
     where = crew.post(v, m),
     status = m.role === "lieutenant" && !m.jailed && !m.wounded ? lieutenantStatus(m, lt) : `<span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>`;
-  return `<article class="card" id="member-${m.id}"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}${tag ? ` <span class="tag ${tag === "retiring" ? "gold" : "coral"}">${esc(tag)}</span>` : ""}<h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.floor(m.loyalty)}</b>loyalty</span><span><b>${money(query("rules.crew.wage_at", m.id, v.you.pay))}</b>a day, ${esc(v.you.pay)}</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p><small class="${m.loyalty < crew.lineOf(m, tun, flip) ? "danger-text" : "subtle-text"}">${esc(crew.linesLine(m, tun, flip))}</small><br>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${status}${labHandHTML(m, false)}${m.exposed ? '<br><span class="danger-text">Talking to the police.</span>' : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", m.id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", m.id, "small", !!v.over)}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`;
+  return `<article class="card" id="member-${m.id}"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}${tag ? ` <span class="tag ${tag === "retiring" ? "gold" : "coral"}">${esc(tag)}</span>` : ""}<h3>${esc(m.name)}${kinMark(m)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.floor(m.loyalty)}</b>loyalty</span><span><b>${money(query("rules.crew.wage_at", m.id, v.you.pay))}</b>a day, ${esc(v.you.pay)}</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p><small class="${m.loyalty < crew.lineOf(m, tun, flip) ? "danger-text" : "subtle-text"}">${esc(crew.linesLine(m, tun, flip))}</small><br>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(cityName(m.captain))}</b> · ${money(m.budget)} a night<br>` : ""}${status}${kinHTML(m, false)}${labHandHTML(m, false)}${m.exposed ? '<br><span class="danger-text">Talking to the police.</span>' : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", m.id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", m.id, "small", !!v.over)}${m.role !== "lieutenant" ? btn("Captaincy", "captain", m.id, "small subtle") : ""}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`;
 }
 // crewSummary is the CREW block under the cards (the TUI pane's CREW).
 function crewSummary() {
-  if (!v.crew.length) return "";
   const rows = crew.summary(v, query("rules.heat.sloppy_heat", v.you.city, 100), engineInfo.sloppySkill);
   return `<h3 class="section-gap">The crew</h3><div class="paper">${rows.map(([k, t, bad]) => `<p>${k ? `<b>${esc(k)}</b> · ` : ""}<span class="${bad ? "danger-text" : ""}">${esc(t)}</span></p>`).join("")}</div>`;
 }
@@ -398,7 +406,7 @@ function memberSheet(id) {
   const temper = m.role !== "lieutenant" ? "" : m.personality ? `Temper: ${m.personality} · ${temperLine(temperOf(lt, m.personality) || {})}` : m.city ? `Temper shows after ${Math.max(1, lt.RevealDays - (v.day - m.assigned))} more days running it` : "Temper shows on the job";
   const fire = m.exposed ? "Fire: the file stops growing; nobody minds." : `Fire: the rest lose ${Math.round(tun.FireLoyalty)} loyalty, not for a snitch.`;
   modal(
-    `<span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}<h2>${esc(m.name)}</h2><p>Skill ${m.skill} · Hired Day ${m.hired}${age ? "<br>" + esc(age) : ""}<br>Loyalty ${Math.floor(m.loyalty)} · <span class="subtle-text">${esc(crew.linesLine(m, tun, flip))}</span><br>Wage ${money(query("rules.crew.wage_at", m.id, v.you.pay))}/day ${esc(v.you.pay)} · <span class="subtle-text">${esc(wages)}</span><br>Carry capacity ${m.carry}<br><span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>${temper ? "<br>" + esc(temper) : ""}${labHandHTML(m, false)}</p>${m.exposed ? '<p class="danger-text"><b>SNITCH</b>: talking to the police.</p>' : ""}<p class="subtle-text">${esc(fire)}</p><div class="card-actions">${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", id, "small", !!v.over)}${btn("Fire", "fire", id, "subtle", !!v.over)}</div>`,
+    `<span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}<h2>${esc(m.name)}</h2><p>Skill ${m.skill} · Hired Day ${m.hired}${age ? "<br>" + esc(age) : ""}<br>Loyalty ${Math.floor(m.loyalty)} · <span class="subtle-text">${esc(crew.linesLine(m, tun, flip))}</span><br>Wage ${money(query("rules.crew.wage_at", m.id, v.you.pay))}/day ${esc(v.you.pay)} · <span class="subtle-text">${esc(wages)}</span><br>Carry capacity ${m.carry}${kinHTML(m, false)}<br><span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>${temper ? "<br>" + esc(temper) : ""}${keepsHTML(m)}${labHandHTML(m, false)}</p>${m.exposed ? '<p class="danger-text"><b>SNITCH</b>: talking to the police.</p>' : ""}<p class="subtle-text">${esc(fire)}</p><div class="card-actions">${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", id, "small", !!v.over)}${btn("Fire", "fire", id, "subtle", !!v.over)}</div>`,
   );
 }
 function renderEmpire() {
@@ -1450,25 +1458,50 @@ function morning() {
 function lieutenantStatus(m, lt) {
   const city = m.city ? v.cities.find((c) => c.id === m.city) : null;
   const tt = m.personality ? temperOf(lt, m.personality) : null;
-  return `${city ? "Runs " + esc(city.name) : "No city yet"}<br>${tt ? `<span class="tag">${esc(m.personality)}</span> <small>${esc(temperLine(tt))}</small>` : `<small>Temper shows after ${lt.RevealDays} days running a city</small>`}`;
+  return `${city ? "Runs " + esc(city.name) : "No city yet"}<br>${tt ? `<span class="tag">${esc(m.personality)}</span> <small>${esc(temperLine(tt))}</small>` : `<small>Temper shows after ${lt.RevealDays} days running a city</small>`}${keepsHTML(m)}`;
+}
+// keepsHTML is a lieutenant's stock levels in their city (#576, ui
+// lieutenantKeeps); "" with none.
+function keepsHTML(m) {
+  const k = m.role === "lieutenant" ? crew.keeps(v, m.city) : "";
+  return k ? `<br><small>Keeps ${esc(k)}</small>` : "";
 }
 // lieutenantDialog is the city picker with the role in words (#455):
 // what they do, the cut and the slots, the tempers and the risk.
 function lieutenantDialog(id) {
   const m = v.crew.find((x) => x.id === Number(id)),
-    lt = query("rules.crew.lieutenancy");
+    lt = query("rules.crew.lieutenancy"),
+    cap = crew.unassignCapLine(v, m, query("rules.crew.max_crew"), lt.Crew);
   modal(
     `<div class="eyebrow">SOMEONE TO RUN A CITY</div><h2>${esc(m.name)} · Lieutenant</h2>${roleLines(lt)
       .map((l, i) => `<p${i === 3 ? ' class="tip-box"' : ""}>${esc(l)}</p>`)
-      .join("")}<label>City<select id="lieutenant-city">${v.cities.map((c) => `<option value="${c.id}" ${c.id === m.city ? "selected" : ""}>${esc(c.name)}</option>`).join("")}${m.city ? '<option value="">Nobody\'s: stand them down</option>' : ""}</select></label>${btn(m.city ? "Change city" : "Run this city", "assign-city", m.id, "primary", !!v.over)}`,
+      .join("")}${cap ? `<p class="danger-text">${esc(cap)}</p>` : ""}<label>City<select id="lieutenant-city">${crew
+      .assignRows(v, m)
+      .map((r) => `<option value="${r.id}" ${r.id === m.city ? "selected" : ""}>${esc(`${r.name} · ${plural(r.corners, "corner")} · ${plural(r.units, "unit")} · runs: ${r.runs}`)}</option>`)
+      .join("")}${m.city ? '<option value="">Nobody\'s: stand them down</option>' : ""}</select></label>${btn(m.city ? "Change city" : "Run this city", "assign-city", m.id, "primary", !!v.over)}`,
   );
 }
+// captainDialog is the captain picker (#576, ui viewCaptain): the
+// cities with the corners held and who captains each, the fixed
+// budgets a night, and the captaincy off them; a member who cannot be
+// captain gets why instead.
 function captainDialog(id) {
   const m = v.crew.find((x) => x.id === Number(id)),
-    cfg = query("rules.crew.captaincy"),
-    eligible = query("rules.crew.can_captain", Number(id));
+    cp = query("rules.crew.captaincy"),
+    no = crew.captainRefusal(m, cp, query("rules.crew.can_captain", Number(id))),
+    at = crew.captainAt(v, m),
+    budgets = cp.Budgets || [],
+    pick = m.captain && budgets.includes(m.budget) ? m.budget : budgets[0];
+  const head = `<div class="eyebrow">SOMEONE YOU CAN TRUST</div><h2>${esc(m.name)} · Captaincy</h2>${m.trait ? `<p>Veteran trait: ${esc(m.trait)} — ${esc(engineInfo.traits[m.trait] || "")}.</p>` : ""}${crew
+    .captainNotes(cp)
+    .map((l) => `<p class="subtle-text">${esc(l)}</p>`)
+    .join("")}${m.captain ? `<p>Captain of ${esc(cityName(m.captain))} · ${esc(crew.budgetWord(m.budget))} for pay-offs.</p>` : ""}`;
+  if (no) return modal(`${head}<p class="danger-text">${esc(no)}</p>`);
   modal(
-    `<div class="eyebrow">SOMEONE YOU CAN TRUST</div><h2>${esc(m.name)} · Captaincy</h2><p>${m.trait ? "Veteran trait: " + esc(m.trait) + " — " + esc(engineInfo.traits[m.trait] || "") + ". " : ""}A captain assigns idle runners, recalls suspected skimmers and pays loyalty bonuses within your budget.</p><p>Requires ${cfg.Days} days of service and ${cfg.Loyalty} loyalty. Takes ${Math.round(cfg.Cut * 100)}% of the city's revenue.</p>${m.captain ? `<p>Currently captain of ${esc(m.captain)} · ${money(m.budget)} nightly bonus budget.</p>${btn("Remove captaincy", "drop-captain", m.id, "subtle")}` : ""}<label>City<select id="captain-city">${v.cities.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label><label>Nightly bonus budget<input type="number" id="captain-budget" value="${m.budget || cfg.Budgets?.[0] || 0}" min="0" step="1000"></label>${btn("Appoint captain", "name-captain", m.id, "primary", !eligible || !!v.over)}${!eligible ? "<p>This member is not currently eligible.</p>" : ""}`,
+    `${head}<label>City<select id="captain-city">${crew
+      .captainRows(v, m)
+      .map((r) => `<option value="${r.id}" ${r.id === at ? "selected" : ""}>${esc(`${r.name} · ${plural(r.corners, "corner")} · captain: ${r.who}`)}</option>`)
+      .join("")}</select></label><label>Pay-off budget<select id="captain-budget">${budgets.map((b) => `<option value="${b}" ${b === pick ? "selected" : ""}>${esc(crew.budgetWord(b))}</option>`).join("")}</select></label><div class="card-actions">${btn(m.captain ? "Move the captaincy" : "Make them captain", "name-captain", m.id, "primary", !!v.over)}${m.captain ? btn("Take it off them", "drop-captain", m.id, "subtle", !!v.over) : ""}</div>`,
   );
 }
 function alignedAction(a, id) {
@@ -1547,27 +1580,33 @@ function alignedAction(a, id) {
       case "assign-city": {
         const city = $("#lieutenant-city").value;
         const m = v.crew.find((x) => x.id === Number(id));
-        if (city) act("assign", [Number(id), city], `${m.name} runs ${v.cities.find((c) => c.id === city).name} from tonight`);
-        else act("unassign", [Number(id)], `${m.name} runs nothing now`);
+        if (city) act("assign", [Number(id), city], crew.assignedSaid(m, cityName(city), query("rules.crew.lieutenancy").Cut));
+        else {
+          // Over the cap without their slots, it warns first (#576).
+          const cap = crew.unassignCapLine(v, m, query("rules.crew.max_crew"), query("rules.crew.lieutenancy").Crew),
+            off = () => {
+              if (act("unassign", [Number(id)], null) !== null) notify(crew.unassignedSaid(m) + crew.overCapWords(v, query("rules.crew.max_crew")));
+            };
+          if (cap) confirm(`Stand ${m.name} down?`, [[cap, "danger-text"]], off);
+          else off();
+        }
         break;
       }
       case "captain":
         captainDialog(id);
         break;
-      case "name-captain":
-        act(
-          "name_captain",
-          [
-            Number(id),
-            $("#captain-city").value,
-            nonnegative("#captain-budget"),
-          ],
-          "Captain appointed",
-        );
+      case "name-captain": {
+        const m = v.crew.find((x) => x.id === Number(id)),
+          city = $("#captain-city").value,
+          budget = Number($("#captain-budget").value);
+        act("name_captain", [Number(id), city, budget], crew.captainSaid(m, cityName(city), budget, query("rules.crew.captaincy").Cut));
         break;
-      case "drop-captain":
-        act("drop_captain", [Number(id)], "Captaincy removed");
+      }
+      case "drop-captain": {
+        const m = v.crew.find((x) => x.id === Number(id));
+        act("drop_captain", [Number(id)], crew.dropCaptainSaid(m));
         break;
+      }
       case "hit-scouts":
         confirm(
           "Confront these scouts?",

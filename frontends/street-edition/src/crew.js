@@ -177,12 +177,12 @@ export function countLine(v, most) {
 }
 
 // summary is the CREW block (ui crewSection): rows of [label, text,
-// warn], for the corners worked, who is off a corner, in a cell or laid
+// warn], for the capacity where you stand (#576), the corners worked, who is off a corner, in a cell or laid
 // up, who runs what, the lieutenant with no city, the snitch and the
 // sloppy runners' heat. sloppy is rules.heat.sloppy_heat where you stand
 // on 100 units, and sloppySkill heat.toml's sloppy_skill (engineInfo).
 export function summary(v, sloppy = 0, sloppySkill = 0) {
-  const rows = [];
+  const rows = capacity(v);
   const fit = (m) => !m.jailed && !m.wounded;
   let worked = 0;
   for (const c of v.cities) worked += c.corners.filter((k) => k.owner === "player" && k.runner).length;
@@ -206,4 +206,150 @@ export function summary(v, sloppy = 0, sloppySkill = 0) {
   if (snitch) rows.push(["snitch", snitch.name + ", fire them", true]);
   if (sloppy > 0) rows.push(["sloppy", `+${sloppy.toFixed(1)} heat/100 units: runners under skill ${sloppySkill}, and a hothead on a corner`, true]);
   return rows;
+}
+
+// capacity is the CREW block's capacity rows (ui crewSection, #576):
+// what the operation holds where you stand, and how much of it is your
+// own carry, off view 21's you.capacity and you.carry_limit.
+export function capacity(v) {
+  const here = v.cities.find((c) => c.id === v.you.city),
+    n = (v.you.capacity || {})[v.you.city] || 0;
+  return [
+    ["capacity", `${n} in ${here ? here.name : v.you.city}`, false],
+    ["", `${v.you.carry_limit} yours + ${n - v.you.carry_limit} crew`, false],
+  ];
+}
+
+// unassignCapLine is the city picker's word on the crew past the cap
+// should the lieutenant come off their city (ui unassignCapLine, #497):
+// most is rules.crew.max_crew, slots the lieutenancy's Crew; "" when
+// they run none or the roster fits without their slots.
+export function unassignCapLine(v, m, most, slots) {
+  if (!m.city) return "";
+  const n = v.crew.length,
+    left = most - slots;
+  return n > left ? `Off the city, the roster is ${n} of ${left}: nobody is let go; you hire under ${left}.` : "";
+}
+
+// overCapWords is what happens to the crew past the cap once a
+// lieutenant's slots are gone (ui overCapWords, #497), with a leading
+// space, read after the unassign: most is rules.crew.max_crew then.
+export function overCapWords(v, most) {
+  const n = v.crew.length;
+  return n > most ? ` The roster is ${n} of ${most}: nobody is let go, and nobody is hired until it is under ${most}.` : "";
+}
+
+// assignedSaid and unassignedSaid are the city picker's results (ui
+// confirmAssign): cut is the lieutenancy's Cut.
+export const assignedSaid = (m, cityName, cut) => `${m.name} runs ${cityName} from tonight: posts the idle crew, sells the stash, keeps ${round(cut * 100)}%.`;
+export const unassignedSaid = (m) => `${m.name} runs nothing now. The crew they posted stay where they are.`;
+
+// held counts the corners you hold in a city (ui heldIn).
+export function held(c) {
+  return c.corners.filter((k) => k.owner === "player").length;
+}
+
+// captainRows are the captain picker's cities (ui viewCaptain): each
+// with the corners held and who captains it, `theirs now` for the one
+// asked about; `{ id, name, corners, who, mine, other }`.
+export function captainRows(v, m) {
+  return v.cities.map((c) => {
+    const o = v.crew.find((x) => x.captain === c.id);
+    return { id: c.id, name: c.name, corners: held(c), who: !o ? "nobody" : o.id === m.id ? "theirs now" : o.name, mine: !!o && o.id === m.id, other: !!o && o.id !== m.id };
+  });
+}
+
+// captainAt is the city the picker opens on (ui askCaptain): theirs,
+// else where they work, else where you stand.
+export function captainAt(v, m) {
+  if (m.captain) return m.captain;
+  for (const c of v.cities) if (m.post && c.corners.some((k) => k.id === m.post)) return c.id;
+  return v.you.city;
+}
+
+// budgetWord is a pay-off budget as the picker shows it.
+export const budgetWord = (b) => (b > 0 ? `${money(b)} a night` : "nothing: no pay-offs");
+
+// captainNotes are the picker's lines (ui viewCaptain): what a captain
+// does each night and the cut, off rules.crew.captaincy.
+export function captainNotes(cp) {
+  return [`Each night: pull a suspected skimmer off a corner, post the idle runners on held corners, pay off one near the walk-out. Cut ${round(cp.Cut * 100)}%.`];
+}
+
+// captainRefusal is why a member cannot be captain (ui askCaptain), or
+// "": a lieutenant runs a city, and the rest wait on loyalty and days
+// at work. can is rules.crew.can_captain.
+export function captainRefusal(m, cp, can) {
+  if (m.role === "lieutenant") return `Can't make ${m.name} captain: a lieutenant runs a city. Give them one with Run a city.`;
+  if (!m.captain && !can) return `Can't make ${m.name} captain yet: it takes loyalty ${round(cp.Loyalty)} and ${plural(cp.Days, "day")} on the payroll, at work.`;
+  return "";
+}
+
+// captainSaid and dropCaptainSaid are the picker's results (ui
+// confirmCaptain).
+export const captainSaid = (m, cityName, budget, cut) => `${m.name} is captain of ${cityName} from tonight: ${money(budget)} a night for pay-offs, keeps ${round(cut * 100)}%.`;
+export const dropCaptainSaid = (m) => (m.captain ? `${m.name} is one of the crew again. Nobody looks after them tonight.` : `${m.name} is nobody's captain.`);
+
+// keeps is a lieutenant's stock levels in their city (ui
+// lieutenantKeeps, #524): each contract of theirs standing, yours
+// winning, in ladder order, `678 Designer · 40 Weed`; "" with none.
+export function keeps(v, city) {
+  const c = city && v.cities.find((x) => x.id === city);
+  if (!c) return "";
+  const supply = v.supply || [],
+    parts = [];
+  for (const p of c.products) {
+    if (supply.some((s) => s.city === city && s.product === p.id && !s.lieutenant)) continue;
+    const s = supply.find((s) => s.city === city && s.product === p.id && s.lieutenant);
+    if (s && s.units > 0) parts.push(`${s.units} ${p.name}`);
+  }
+  return parts.join(" · ");
+}
+
+// poolNext is the days until new faces come looking (ui viewCrew): days
+// is rules.crew.pool_days, and view 21's you.pool_day the last turn.
+export function poolNext(v, days) {
+  return Math.max(1, days - (v.day - (v.you.pool_day || 0)));
+}
+
+// KIN is the mark on a name with kin (ui kinGlyph, #46), and KIN_LEGEND
+// what it says.
+export const KIN = "♦",
+  KIN_LEGEND = "♦ has kin on the payroll or looking for work";
+
+// relation is the word for a pair of kin (ui relation): fixed by the
+// pair and nothing saved.
+export function relation(a, b) {
+  return ["cousin", "partner", "friend"][(a + b) % 3];
+}
+
+// kinNames are a member's kin, on the payroll or in the pool, with the
+// word for each (ui kinNames): ["Bo (cousin)"].
+export function kinNames(v, m) {
+  const out = [];
+  for (const id of m.kin || []) {
+    const k = v.crew.find((x) => x.id === id) || v.pool.find((x) => x.id === id);
+    if (k) out.push(`${k.name} (${relation(m.id, k.id)})`);
+  }
+  return out;
+}
+
+// kinLine is the kin row for a member or a face in the pool (ui
+// personLines): their kin, and for a face, the discount it brings; "".
+export function kinLine(v, m, inPool) {
+  const names = kinNames(v, m),
+    parts = names.length ? [`Kin: ${names.join(", ")}`] : [];
+  if (inPool && (m.kin || []).length) parts.push(names.length ? "came with the kin: fee at the discount" : "Came with the kin: fee at the discount");
+  return parts.join(" · ");
+}
+
+// assignRows are the lieutenant's city picker (ui viewAssign): each
+// city with the corners held, the units stashed and who runs it,
+// `theirs now` for the one asked about.
+export function assignRows(v, m) {
+  return v.cities.map((c) => {
+    const o = v.crew.find((x) => x.role === "lieutenant" && x.city === c.id),
+      units = Object.values((v.you.stock || {})[c.id] || {}).reduce((a, b) => a + b, 0);
+    return { id: c.id, name: c.name, corners: held(c), units, runs: !o ? "nobody" : o.id === m.id ? "theirs now" : o.name };
+  });
 }

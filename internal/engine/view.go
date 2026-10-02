@@ -40,8 +40,10 @@ import (
 // connect's door, terms and record; a product's glut and the demand your
 // corners serve, and a shock's multiplier; the corners worked; the
 // street's quality; and the day
-// the feds stop watching the skies.
-const ViewVersion = 20
+// the feds stop watching the skies. 21 (#576) what Street Edition's
+// crew tab reads: a member's kin, the day the pool last turned over,
+// your carry and what each city holds.
+const ViewVersion = 21
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -304,6 +306,11 @@ type YouView struct {
 	// View 20 (#582).
 	Away          map[string]int `json:"away"`           // city id -> the units it holds with you elsewhere (World.CapacityAway, #524): where you stand, its capacity without your carry
 	StreetQuality float64        `json:"street_quality"` // the quality a lot is sold at by default (World.StreetQuality, #47)
+
+	// View 21 (#576).
+	CarryLimit int            `json:"carry_limit"` // the units you carry yourself (Player.CarryLimit)
+	Capacity   map[string]int `json:"capacity"`    // city id -> the units the operation holds there (World.Capacity): your carry where you stand, the crew's and the houses'
+	PoolDay    int            `json:"pool_day"`    // the day the faces looking for work last turned over (Crew.PoolDay); rules.crew.pool_days is the turn
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -401,6 +408,9 @@ type MemberView struct {
 	Assigned    int    `json:"assigned,omitempty"`     // the day a lieutenant took their city
 	Route       string `json:"route,omitempty"`        // the route a driver rides
 	Lab         bool   `json:"lab,omitempty"`          // the chemist who cooks and cuts, the best on the payroll (#47); another waits
+
+	// View 21 (#576).
+	Kin []int `json:"kin,omitempty"` // the ids of their kin on the payroll or in the pool (#46)
 }
 
 // ContractView is a buyer's contract still somebody's business (#71,
@@ -826,6 +836,9 @@ func (s *Session) View() View {
 
 		Reign:     w.Reign,
 		ReignSlip: w.ReignSlip,
+
+		CarryLimit: w.Player.CarryLimit,
+		PoolDay:    w.Crew.PoolDay,
 	}
 	for _, id := range sortedKeys(w.Upgrades) {
 		if w.Upgrades[id] {
@@ -833,7 +846,7 @@ func (s *Session) View() View {
 		}
 	}
 	street := map[string]map[string]int{} // city -> product -> units, built here so the view shares no map with the world
-	v.You.Quality, v.You.Room, v.You.Away = map[string]map[string]float64{}, map[string]int{}, map[string]int{}
+	v.You.Quality, v.You.Room, v.You.Away, v.You.Capacity = map[string]map[string]float64{}, map[string]int{}, map[string]int{}, map[string]int{}
 	v.You.StreetQuality = w.StreetQuality()
 	for _, cid := range w.CityOrder {
 		c := w.Cities[cid]
@@ -846,6 +859,7 @@ func (s *Session) View() View {
 		}
 		street[cid] = stock
 		v.You.Quality[cid], v.You.Room[cid], v.You.Away[cid] = quality, w.Free(cid), w.CapacityAway(cid)
+		v.You.Capacity[cid] = w.Capacity(cid)
 		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill, Worked: w.WorkedIn(cid)}
 		// Today's backing included (World.Campaigning, #552), as the
 		// TUI's race reads it: money put behind a ticket shows at once.
@@ -886,7 +900,7 @@ func (s *Session) View() View {
 	}
 	v.You.Stock = street
 	for _, m := range w.Crew.Candidates {
-		v.Pool = append(v.Pool, MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Carry: m.Units, Fee: m.Fee})
+		v.Pool = append(v.Pool, MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Carry: m.Units, Fee: m.Fee, Kin: append([]int(nil), m.Kin...)})
 	}
 	for _, c := range w.Contracts {
 		if c.Done() {
@@ -912,7 +926,7 @@ func (s *Session) View() View {
 		v.Upgrades = append(v.Upgrades, UpgradeView{ID: u.ID, Name: u.Name, Branch: u.Branch, Desc: u.Desc, Cost: u.Cost, Clean: u.Clean, Requires: append([]string(nil), u.Requires...), State: state})
 	}
 	for _, m := range w.Crew.Members {
-		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day), Carry: m.Units, Trait: m.Trait, Captain: m.Captain, Budget: m.Budget}
+		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day), Carry: m.Units, Trait: m.Trait, Captain: m.Captain, Budget: m.Budget, Kin: append([]int(nil), m.Kin...)}
 		if c := w.PostOf(m.ID); c != nil {
 			mv.Post = c.ID
 		}

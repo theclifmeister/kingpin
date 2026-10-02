@@ -144,7 +144,44 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   assert.deepEqual(crew.post(v, { ...m, wounded: 2 }), { text: "laid up 2d", warn: true }, "a laid-up member's post");
   assert.match(crew.countLine(v, s.call("rules.crew.max_crew")), /^\d+ of \d+ on the payroll$/, "N of M");
   for (const p of crew.PAY) assert.ok(s.call("rules.crew.wages", p) >= 0 && crew.payBlurb(p), `the ${p} notch`);
-  assert.ok(crew.summary(v, 0, engineInfo.sloppySkill)[0][1].endsWith("worked"), "the summary");
+  assert.ok(crew.summary(v, 0, engineInfo.sloppySkill)[2][1].endsWith("worked"), "the summary");
+  // The crew's last words (#576): capacity, the over-cap words, the
+  // captain picker, a lieutenant's keeps, the pool's turn and kin.
+  const sum = crew.summary(v, 0, engineInfo.sloppySkill),
+    here = v.cities.find((c) => c.id === v.you.city);
+  assert.equal(sum[0][1], `${v.you.capacity[v.you.city]} in ${here.name}`, "the capacity row");
+  assert.match(sum[1][1], new RegExp(`^${v.you.carry_limit} yours \\+ \\d+ crew$`), "yours and the crew's");
+  assert.ok(v.you.capacity[v.you.city] >= v.you.carry_limit && v.you.carry_limit > 0, "the carry is in what the city holds");
+  const most = s.call("rules.crew.max_crew"),
+    ltT = s.call("rules.crew.lieutenancy"),
+    boss = { id: 77, name: "Yaya", role: "lieutenant", city: here.id },
+    full = { ...v, crew: [...Array(most).fill(0).map((_, i) => ({ id: 100 + i, name: "N" + i, role: "runner" })), boss] };
+  assert.equal(crew.unassignCapLine(full, boss, most + ltT.Crew, ltT.Crew), `Off the city, the roster is ${most + 1} of ${most}: nobody is let go; you hire under ${most}.`, "the over-cap warning");
+  assert.equal(crew.unassignCapLine(full, { ...boss, city: "" }, most + ltT.Crew, ltT.Crew), "", "no city, no warning");
+  assert.equal(crew.unassignCapLine(v, boss, most + ltT.Crew, ltT.Crew), "", "under the cap, no warning");
+  assert.match(crew.overCapWords(full, most), /^ The roster is \d+ of \d+: nobody is let go, and nobody is hired until it is under \d+\.$/, "the over-cap words");
+  const cp = s.call("rules.crew.captaincy");
+  assert.ok(cp.Budgets.length > 1, "fixed budgets");
+  assert.ok(cp.Budgets.every((b) => crew.budgetWord(b)), "each budget in words");
+  assert.match(crew.captainRefusal(boss, cp, true), /a lieutenant runs a city/, "no captain from a lieutenant");
+  assert.match(crew.captainRefusal({ ...m, captain: "" }, cp, false), new RegExp(`takes loyalty ${Math.round(cp.Loyalty)} and ${cp.Days} days`), "why not yet");
+  const capd = { ...v, crew: [{ ...m, captain: here.id, budget: cp.Budgets[0] }, { id: 5, name: "Kit", role: "runner" }] };
+  const rows = crew.captainRows(capd, capd.crew[1]);
+  assert.equal(rows.length, v.cities.length, "a row a city");
+  assert.equal(rows.find((r) => r.id === here.id).who, m.name, "who captains it");
+  assert.equal(crew.captainRows(capd, capd.crew[0]).find((r) => r.id === here.id).who, "theirs now", "theirs now");
+  assert.equal(crew.captainAt(capd, capd.crew[0]), here.id, "the picker opens on theirs");
+  const prods = here.products;
+  const kept = { ...v, supply: [{ city: here.id, product: prods[0].id, units: 40, lieutenant: 77 }, { city: here.id, product: prods[1].id, units: 9, lieutenant: 77 }, { city: here.id, product: prods[1].id, units: 5 }] };
+  assert.equal(crew.keeps(kept, here.id), `40 ${prods[0].name}`, "their keeps, yours winning");
+  assert.equal(crew.keeps(kept, ""), "", "no city, no keeps");
+  const pd = s.call("rules.crew.pool_days");
+  assert.equal(crew.poolNext({ day: v.you.pool_day, you: v.you }, pd), pd, "a full turn to go");
+  assert.equal(crew.poolNext({ day: v.you.pool_day + pd + 3, you: v.you }, pd), 1, "never under a day");
+  const kin = { ...v, crew: [{ id: 3, name: "Ana", kin: [4] }], pool: [{ id: 4, name: "Bo", kin: [3] }] };
+  assert.deepEqual(crew.kinNames(kin, kin.crew[0]), ["Bo (partner)"], "kin by name and word");
+  assert.equal(crew.kinLine(kin, kin.pool[0], true), "Kin: Ana (partner) · came with the kin: fee at the discount", "a face with kin");
+  assert.equal(crew.relation(1, 2), "cousin", "the TUI's word");
   // The acts the confirms ask for reach the engine: each at its quoted
   // price, or refused for the cash.
   const dirty = () => s.refresh().you.dirty_cash;
@@ -947,6 +984,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, and save round-trip.`,
 );
 process.exit(0);
