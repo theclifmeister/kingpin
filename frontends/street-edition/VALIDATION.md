@@ -47,7 +47,9 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Money | Front-buy terms, shut warning, status reasons, shuts tonight | done (#553; the preview #549) |
 | Money | Locked fronts on offer, "$N to go" | done (#553) |
 | Logistics | Route idle reasons (`ui/routes.go`) | done (#553) |
-| Routine | Standing orders and supply contracts; the cart from the view; sweep | open #556 |
+| Routine | Standing orders (the whole stash, the edit words) and supply contracts (keep at, the morning's buy, holding on the road, the room) (`ui/market.go`, `ui/dialogs.go`) | done (#556); the room without your carry where you stand is not on the view |
+| Routine | The cart from the view, with each line's take and remove (`ui/cart.go`) | partial (#556): orders, standing orders and contracts; the day's buys and the morning's contract buys are not on the view |
+| Routine | Sweep offshore (`ui/sweep.go`) | open #556 |
 | Routine | Owned assets and houses, connect credit, route and market panes | partial (debt #549, checkpoint #552, idle #553); open #556 |
 | Money | Wash audit odds, throughput, pile rot, tax | open #577 |
 | Money | Presets and upgrades in readable names | open #556 |
@@ -63,6 +65,17 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# The routine, part one (#556, protocol 28 / view 18)
+
+No version moved: view 15 (#550) already carried `orders`, `standing` (with `all`) and `supply` (with `lieutenant`), and the commands `place_standing` (with -1 for the whole stash), `cancel_standing`, `set_supply` and `clear_supply` were on the protocol. The words are in `src/routine.js`, pure: the TUI's market pane rows (`standingRows`, `contractRows`), the sell and buy dialogs' edit words (#443), the whole-stash standing order (#503), what lands tonight, what the contract buys before the sales and why it brings none (#467, #524, off `rules.market.due` and `due_short`), the room warning for a contract in a city away, `supplyShortWords`, and the cart (`ui/cart.go`) with each order's take off `rules.market.capacity`, `dial` and `cut`. The page's memo of sales is gone: the cart is the view's, and an old save's memo sales are dropped on load. Other moves queued for tonight (a strike, a scout, a delivery, a transfer) stay in the memo.
+
+Checks:
+
+- `smoke.mjs` (Node, the built WASM, seed 41 to day 45): a contract and a whole-stash standing order set as the page sets them show on the view with the TUI's rows and edit words, over-the-stash numbers are refused in the TUI's words, every order, standing order and contract of the view is a cart line, and both survive `export_save`/`import_save`.
+- Chromium (Playwright headless, 1280×900 and 390×900) on a fresh seed-41 run with 12 Weed bought: the Routine dialog places a quiet standing order on the whole stash and a contract at 30 (`Keeping 30 Weed in Eastside: topped up … at ×1.05 the supplier's price.`); the product row reads `Standing all quiet · cut 5%`, `Keep at 30`, `Brings 18 in the morning at $12.13`; a sale of 3 then reads `Sell 3 Weed · quiet · ~$57` over the `Keep 30 Weed · ~18 tonight` line; after a reload all three are on the view and the cart; cancelling the sale puts `Standing all Weed (30) · quiet · ~$541` in its place. No page errors; no horizontal scroll at 390.
+
+Not covered here (the rest of #556): the sweep, owned houses and assets, connects with credit, the route and market panes, presets and upgrades in readable names. The TUI's contract warning where you stand counts the room without your carry, which the view does not carry; this edition gives it for a city away only.
 
 # The endings, the crown and the rivals' table (#554, protocol 28 / view 18)
 
