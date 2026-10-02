@@ -33,7 +33,9 @@ import (
 // and rivals' table read: the reign's day and slip, each faction's
 // city, stance, fall, betrayal and split lines, the lifetime table
 // counters, the fallen, and the ending's title, epilogue and story.
-const ViewVersion = 18
+// 19 (#581) a house's price, rent, day bought and nights the rent has
+// gone unpaid, which Street Edition's owned houses read.
+const ViewVersion = 19
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -248,7 +250,7 @@ type YouView struct {
 	Fear      float64                   `json:"fear"`
 	Respect   float64                   `json:"respect"`
 	Notoriety float64                   `json:"notoriety"`
-	Stock     map[string]map[string]int `json:"stock"` // city id -> product id -> units on the street
+	Stock     map[string]map[string]int `json:"stock"` // city id -> product id -> units stashed, the street and the houses (World.Stock)
 	Upgrades  []string                  `json:"upgrades"`
 	QuietDays int                       `json:"quiet_days"`
 	Character string                    `json:"character,omitempty"`
@@ -476,7 +478,11 @@ type HouseView struct {
 	Capacity int            `json:"capacity"`
 	Stock    map[string]int `json:"stock"`
 	Guard    int            `json:"guard,omitempty"`
-	Known    bool           `json:"known,omitempty"` // the police have it in the file
+	Known    bool           `json:"known,omitempty"`  // the police have it in the file
+	Price    int            `json:"price"`            // what it cost, dirty cash, once (#581)
+	Rent     int            `json:"rent"`             // clean cash a day
+	Bought   int            `json:"bought"`           // the day it was bought
+	Unpaid   int            `json:"unpaid,omitempty"` // days the rent has gone unpaid in a row
 }
 
 // FrontView is a front you own.
@@ -916,7 +922,8 @@ func (s *Session) View() View {
 				stock[pid] = n
 			}
 		}
-		v.Houses = append(v.Houses, HouseView{ID: h.ID, Name: h.Name, City: h.City, Corner: h.Corner, Capacity: h.Capacity, Stock: stock, Guard: h.Guard, Known: h.Known})
+		v.Houses = append(v.Houses, HouseView{ID: h.ID, Name: h.Name, City: h.City, Corner: h.Corner, Capacity: h.Capacity, Stock: stock, Guard: h.Guard, Known: h.Known,
+			Price: h.Price, Rent: h.Rent, Bought: h.Bought, Unpaid: h.Unpaid})
 	}
 	for _, f := range w.Fronts {
 		fv := FrontView{ID: f.ID, Name: f.Name, Level: f.Level, Frozen: f.Frozen(w.Day), Washed: f.Washed,

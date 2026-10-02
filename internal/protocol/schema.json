@@ -3006,6 +3006,9 @@
     },
     "engine.HouseView": {
       "properties": {
+        "bought": {
+          "type": "integer"
+        },
         "capacity": {
           "type": "integer"
         },
@@ -3027,11 +3030,20 @@
         "name": {
           "type": "string"
         },
+        "price": {
+          "type": "integer"
+        },
+        "rent": {
+          "type": "integer"
+        },
         "stock": {
           "additionalProperties": {
             "type": "integer"
           },
           "type": "object"
+        },
+        "unpaid": {
+          "type": "integer"
         }
       },
       "required": [
@@ -3040,7 +3052,10 @@
         "city",
         "corner",
         "capacity",
-        "stock"
+        "stock",
+        "price",
+        "rent",
+        "bought"
       ],
       "type": "object"
     },
@@ -17028,5 +17043,5 @@
   },
   "protocol": 28,
   "title": "kingpind",
-  "view_version": 18
+  "view_version": 19
 }

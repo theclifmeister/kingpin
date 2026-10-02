@@ -1,4 +1,4 @@
-version 18
+version 19
 .version int
 .seed uint64
 .day int
@@ -239,6 +239,10 @@ version 18
 .houses[].stock{} int
 .houses[].guard int
 .houses[].known bool
+.houses[].price int
+.houses[].rent int
+.houses[].bought int
+.houses[].unpaid int
 .fronts []
 .fronts[].id string
 .fronts[].name string

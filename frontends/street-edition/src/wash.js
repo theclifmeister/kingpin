@@ -232,7 +232,7 @@ export function noFrontsOnOffer(q) {
 // its source (#537): "no Weed or Coke", or "nothing it is short of".
 function routeShortOf(v, r) {
   const from = v.cities.find((c) => c.id === r.from),
-    stock = (id) => (v.you.stock?.[r.from]?.[id] || 0) + (v.houses || []).filter((h) => h.city === r.from).reduce((n, h) => n + (h.stock?.[id] || 0), 0),
+    stock = (id) => v.you.stock?.[r.from]?.[id] || 0, // the street and the houses (World.Stock)
     names = Object.keys({ ...(r.target || {}), ...(r.days_target || {}) })
       .filter((id) => (r.target?.[id] || r.days_target?.[id]) && stock(id) <= 0)
       .map((id) => from?.products.find((p) => p.id === id)?.name || id);
