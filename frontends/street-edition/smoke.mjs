@@ -582,10 +582,64 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   assert.match(table.warRefusal({ ...v, you: { ...v.you, war: v.factions[0].id } }, v.factions[0]), /^Can't declare war on .+: one war at a time/);
   for (const [, t] of table.lifetimeRows(v)) clean(t, "a lifetime row");
 }
+// The routine (#556): routine.js's words on the live run; a standing
+// order and a supply contract set as the page sets them survive the
+// save, and the cart is the engine's orders, never a memo.
+if (!session.view.over) {
+  const routine = await import(pathToFileURL(path.join(dist, "routine.js")));
+  const q = (m, ...p) => session.call(m, ...p),
+    clean = (s, what) => assert.ok(typeof s === "string" && !/undefined|NaN|\[object/.test(s), `${what}: ${s}`);
+  let v = session.refresh();
+  const here = v.you.city,
+    supplied = v.cities.find((c) => c.id === here).products.find((p) => !p.no_supply);
+  assert.ok(supplied, "a product the connects sell here");
+  const id = supplied.id;
+  assert.equal(routine.readKeep(v, here, id, "").units, routine.keepMax(v, here, id), "blank keeps what the stash holds");
+  assert.ok(routine.readKeep(v, here, id, String(routine.keepMax(v, here, id) + 1)).err, "over the stash is refused");
+  const keep = Math.min(20, routine.keepMax(v, here, id));
+  q("set_supply", here, id, keep);
+  clean(routine.keepSaid(v, q, here, id, keep), "the contract's answer");
+  v = session.refresh();
+  const k = routine.contract(v, here, id);
+  assert.ok(k && k.own && k.units === keep, "the contract is on the view");
+  assert.match(routine.contractRows(v, q, here, id)[0][0], new RegExp(`^keep at ${keep}$`));
+  assert.match(routine.editingContract(v, here, id), /^Editing the contract \(keep \d+\); /);
+  assert.match(routine.keptLine(v, here, id), /^Kept at \d+ by contract; this buys once and leaves it\.$/);
+  for (const [t] of routine.contractRows(v, q, here, id)) clean(t, "a contract row");
+  // A standing order kept at the whole stash (#503), where there is any.
+  const most = routine.standable(v, q, here, id);
+  if (most > 0) {
+    const r = routine.readStanding(v, q, here, id, "");
+    assert.equal(r.qty, routine.ALL, "blank is the whole stash");
+    assert.ok(routine.readStanding(v, q, here, id, String(most + 1)).err, "over what may stand is refused");
+    q("place_standing", here, id, r.qty, "quiet");
+    v = session.refresh();
+    const st = routine.standing(v, here, id);
+    assert.ok(st && st.all && st.dial === "quiet", "the standing order is on the view, kept at all");
+    assert.match(routine.standingRow(v, q, here, id), /^all quiet · cut \d+%$/);
+    assert.match(routine.editingStanding(v, here, id), /^Editing the standing order \(all quiet\); /);
+    clean(routine.standingSaid(v, q, here, id, routine.ALL, "quiet"), "the standing order's answer");
+  } else clean(routine.sellRefusal(v, q, here, id), "nothing to stand on");
+  // The cart is the engine's: each order of the day, each standing order
+  // where none was placed (none on a quiet day), each contract of yours.
+  const lines = routine.cart(v, q);
+  for (const o of v.orders || []) assert.ok(lines.some((l) => l.kind === "sell" && l.city === o.city && l.product === o.product && l.qty === o.qty), "an order of the day is in the cart");
+  for (const o of v.standing || [])
+    assert.equal(lines.some((l) => l.kind === "standing" && l.city === o.city && l.product === o.product), !v.you.lie_low && !routine.order(v, o.city, o.product), "a standing order sells tonight unless an order stands over it");
+  for (const c of (v.supply || []).filter((x) => !x.lieutenant)) assert.ok(lines.some((l) => l.kind === "keep" && l.city === c.city && l.product === c.product && l.qty === c.units), "a contract is a keep line");
+  for (const l of lines) clean(routine.cartLine(v, l), "a cart line");
+  clean(routine.cartTotals(lines), "the cart's totals");
+  for (const why of ["road", "room", "supplier", "cash"]) clean(routine.supplyShortWords(why), "a supply short");
+  // Both survive the save and show on reload.
+  const again = new Session(globalThis.kingpin);
+  again.importSave(session.exportSave());
+  assert.deepEqual(again.view.supply, v.supply, "the contract survives the save");
+  assert.deepEqual(again.view.standing, v.standing, "the standing order survives the save");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, and save round-trip.`,
 );
 process.exit(0);

@@ -10,6 +10,7 @@ import * as lab from "./lab.js?v=__BUILD_REVISION__";
 import * as law from "./law.js?v=__BUILD_REVISION__";
 import * as endings from "./endings.js?v=__BUILD_REVISION__";
 import * as table from "./rivals.js?v=__BUILD_REVISION__";
+import * as routine from "./routine.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -281,14 +282,15 @@ function renderBusiness() {
   for (const a of v.alerts) h += alertButton(a);
   if (v.you.lie_low)
     h += `<div class="todo">${icon("sun")}<div><span>A quiet night</span><small>${esc(law.lieLowSaid(v))}</small></div></div>`;
-  h += orders
+  const queued = [...routine.cart(v, query).filter((l) => l.kind !== "keep").map((l) => routine.cartLine(v, l)), ...orders.map((o) => o.text)];
+  h += queued
     .slice(0, 4)
     .map(
-      (o) =>
-        `<div class="todo">${icon("check")}<div><span>${esc(o.text)}</span><small>Queued for tonight</small></div></div>`,
+      (t) =>
+        `<div class="todo">${icon("check")}<div><span>${esc(t)}</span><small>Queued for tonight</small></div></div>`,
     )
     .join("");
-  if (!orders.length && !v.card)
+  if (!queued.length && !v.card)
     h += `<div class="todo">${icon("clock")}<div><span>Nothing queued yet</span><small>Visit the market, hire someone, or choose a corner.</small></div></div>`;
   h += `<div class="todo">${icon("map")}<div><span>${city().corners.filter((c) => c.owner === "player").length} / ${city().corners.length} corners held</span><small>${esc(city().name)} · ${v.crew.length} people on payroll</small></div></div>`;
   const plan = v.ambitions.find((a) => a.pinned);
@@ -327,11 +329,11 @@ function renderMarket() {
     .map((p) => {
       const supplier = con.find((x) => x.prices[p.id] != null),
         room = supplier ? session.maxBuy(supplier.id, p.id) : null;
-      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small></td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${stock[p.id] || 0}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, stock[p.id] || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !stock[p.id] || !!v.over)}</td></tr>`;
+      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small>${routineRowsHTML(c.id, p.id)}</td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${stock[p.id] || 0}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, stock[p.id] || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !routine.sellable(v, query, c.id, p.id) || !!v.over)} ${btn("Routine", "routine", p.id, "small subtle", !!v.over)}</td></tr>`;
     })
     .join(
       "",
-    )}</tbody></table></div><div class="row" style="margin-top:14px"><label class="subtle-text">Sales approach <select id="sale-dial" class="inline-select" data-change="sale-dial">${[["quiet", "Quiet · lower profile"], ["normal", "Normal · balanced"], ["aggressive", "Aggressive · more heat"]].map(([d, label]) => `<option value="${d}" ${d === saleDial ? "selected" : ""}>${label}</option>`).join("")}</select></label>${btn("Sell all held stock", "sell-all", "", "small", !!v.over)}</div>${orders.length ? `<h3 class="section-gap">Tonight’s orders</h3>${orders.map((o) => `<div class="order-item">${esc(o.text)}${o.product ? ` <button class="quiet-link" data-action="cancel-sale" data-id="${o.product}">Cancel</button>` : ""}</div>`).join("")}` : ""}${labPanelHTML()}<h3 class="section-gap">Private buyers</h3>${v.contracts.length ? `<div class="cards">${v.contracts.map((c) => `<article class="card" id="contract-${c.id}"><span class="tag">${esc(c.status)}</span><h3>${esc(c.name)}</h3><p>${esc(c.pitch)}</p><div class="stat-row"><span><b>${c.units}</b>units</span><span><b>${c.delivered}</b>delivered</span><span><b>${c.due}</b>due day</span></div>${c.status === "offered" ? btn("Accept contract", "contract", c.id, "small") : btn("Deliver stock", "deliver", c.id, "small")}</article>`).join("")}</div>` : '<div class="empty">No private offers today. Check back tomorrow.</div>'}`;
+    )}</tbody></table></div><div class="row" style="margin-top:14px"><label class="subtle-text">Sales approach <select id="sale-dial" class="inline-select" data-change="sale-dial">${[["quiet", "Quiet · lower profile"], ["normal", "Normal · balanced"], ["aggressive", "Aggressive · more heat"]].map(([d, label]) => `<option value="${d}" ${d === saleDial ? "selected" : ""}>${label}</option>`).join("")}</select></label>${btn("Sell all held stock", "sell-all", "", "small", !!v.over)}</div>${cartHTML()}${labPanelHTML()}<h3 class="section-gap">Private buyers</h3>${v.contracts.length ? `<div class="cards">${v.contracts.map((c) => `<article class="card" id="contract-${c.id}"><span class="tag">${esc(c.status)}</span><h3>${esc(c.name)}</h3><p>${esc(c.pitch)}</p><div class="stat-row"><span><b>${c.units}</b>units</span><span><b>${c.delivered}</b>delivered</span><span><b>${c.due}</b>due day</span></div>${c.status === "offered" ? btn("Accept contract", "contract", c.id, "small") : btn("Deliver stock", "deliver", c.id, "small")}</article>`).join("")}</div>` : '<div class="empty">No private offers today. Check back tomorrow.</div>'}`;
 }
 function renderCrew() {
   const lt = query("rules.crew.lieutenancy"),
@@ -671,7 +673,7 @@ function exportFile() {
   notify("Save exported");
 }
 async function action(a, id) {
-  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id)) return;
+  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id)) return;
   try {
     switch (a) {
       case "close":
@@ -747,41 +749,33 @@ async function action(a, id) {
           $("#qty-" + id).value = Math.max(1, room.max);
           break;
         }
+        const kept = routine.keptLine(v, city().id, id);
         confirm(
           "Buy this stock?",
-          `${qty} ${id}. Stash after purchase: ${room.held + qty} / ${room.capacity}.`,
+          [`${qty} ${id}. Stash after purchase: ${room.held + qty} / ${room.capacity}.`, ...(kept ? [[kept, "subtle-text"]] : [])],
           () => act("buy", [sup.id, id, qty, false], "Stock purchased"),
         );
         break;
       }
       case "sell": {
-        const n = integer("#qty-" + id);
-        act(
-          "place_sell",
-          [city().id, id, n, $("#sale-dial").value],
-          "Sale queued for tonight",
-          {
-            order: { key: "sell-" + id, product: id, text: `Sell ${n} ${id}` },
-          },
-        );
+        // Sized for what lands tonight (#503): that comes after the
+        // sales, so only a standing order counts on it.
+        const here = city().id,
+          n = integer("#qty-" + id),
+          most = routine.sellable(v, query, here, id),
+          land = routine.landing(v, here, id),
+          dial = $("#sale-dial").value;
+        if (n > most && land > 0) throw Error(`Only ${most} sell tonight: the ${land} landing come after the sales; a standing order (Routine) counts them from tomorrow night.`);
+        act("place_sell", [here, id, n, dial], `Queued ${n} ${routine.productName(v, id)} in ${city().name}, ${dial}. It sells at the end of the day.`);
         break;
       }
       case "sell-all": {
         const dial = $("#sale-dial").value;
         for (const [p, n] of Object.entries(v.you.stock[city().id] || {}))
-          if (n)
-            act("place_sell", [city().id, p, n, dial], null, {
-              order: { key: "sell-" + p, product: p, text: `Sell ${n} ${p}` },
-            });
+          if (n) act("place_sell", [city().id, p, n, dial], null);
         notify("Held stock queued for sale");
         break;
       }
-      case "cancel-sale":
-        act("cancel_sell", [city().id, id], "Sale cancelled");
-        orders = orders.filter((o) => o.product !== id);
-        persist();
-        render();
-        break;
       case "hire":
         act("hire", [Number(id)], "Welcome to the crew");
         break;
@@ -1180,7 +1174,9 @@ async function boot() {
       );
       if (saved?.save) {
         session.importSave(saved.save);
-        orders = saved.orders || [];
+        // A sale was the page's memo before #556; the cart is the
+        // view's now, so an old save's sales are dropped from it.
+        orders = (saved.orders || []).filter((o) => !o.product);
         history = saved.history || [];
         loaded = true;
       }
@@ -1545,9 +1541,6 @@ function alignedAction(a, id) {
       case "preset-apply": {
         const r = act("apply_preset", [id], "Routine updated");
         if (r) {
-          if (v.you.lie_low) orders = orders.filter((o) => !o.product);
-          persist();
-          render();
           if (r.refused.length)
             notify(r.refused.map((x) => x.why).join("; "), true);
         }
@@ -1869,6 +1862,108 @@ function lawAction(a, id) {
           go = () => act("set_lie_low", [!v.you.lie_low], null) !== null && notify(law.lieLowSaid(v));
         if (lines.length) confirm("Lie low? A handoff is queued", lines.map((l, i) => (i === lines.length - 1 ? [l, "subtle-text"] : l)), go);
         else go();
+        break;
+      }
+      default:
+        return false;
+    }
+  } catch (e) {
+    notify(e.message, true);
+  }
+  return true;
+}
+
+// The routine (#556), worded by routine.js as the TUI's market pane,
+// sell and buy dialogs and cart word them: a product's standing order
+// and contract on its row, the routine dialog that places, edits,
+// cancels and clears them, and the cart read off the view.
+function routineRowsHTML(cityId, id) {
+  const st = routine.standingRow(v, query, cityId, id),
+    rows = routine.contractRows(v, query, cityId, id);
+  return `${st ? `<br><small class="warn-text">Standing ${esc(st)}</small>` : ""}${rows.map(([t, k]) => `<br><small class="${tone(k)}">${esc(t[0].toUpperCase() + t.slice(1))}</small>`).join("")}`;
+}
+// cartHTML is tonight's cart (ui/cart.go): each order, each standing
+// order that sells tonight and each contract kept, with the totals and
+// the line's remove; the page's other moves queued for tonight after.
+function cartHTML() {
+  const lines = routine.cart(v, query);
+  if (!lines.length && !orders.length) return "";
+  const remove = { sell: "Cancel", standing: "Cancel standing", keep: "Clear" };
+  return `<h3 class="section-gap" id="cart">Tonight’s orders</h3>${lines.length ? `<p class="subtle-text">${esc(routine.cartTotals(lines))}</p>` : ""}${lines
+    .map((l) => `<div class="order-item" id="cart-${l.kind}-${esc(l.city)}-${esc(l.product)}">${esc(routine.cartLine(v, l))} <button class="quiet-link" data-action="cart-remove" data-id="${l.kind}|${esc(l.city)}|${esc(l.product)}" ${v.over ? "disabled" : ""}>${remove[l.kind]}</button></div>`)
+    .join("")}${orders.map((o) => `<div class="order-item">${esc(o.text)}</div>`).join("")}`;
+}
+// routineDialog is a product's routine where you stand: its standing
+// order (the TUI's sell dialog at standing, #114, #503) and its supply
+// contract (the buy dialog at keep at, #113), each with what stands,
+// the edit words (#443), the field and what it does.
+function routineDialog(id) {
+  const here = v.you.city,
+    name = routine.productName(v, id),
+    st = routine.standing(v, here, id),
+    k = routine.contract(v, here, id),
+    lines = (xs) => xs.filter(Boolean).map((t) => `<p class="subtle-text">${esc(t)}</p>`).join(""),
+    nos = routine.noSupply(v, here, id),
+    sellNo = routine.sellRefusal(v, query, here, id) && !routine.landing(v, here, id) ? routine.sellRefusal(v, query, here, id) : "";
+  modal(
+    `<div class="eyebrow">THE ROUTINE</div><h2>${esc(name)} · ${esc(cityName(here))}</h2><p>${routine.stock(v, here, id)} stashed · ${v.you.room?.[here] || 0} room in the stash</p>
+<h3>Standing order</h3><p>${st ? `<b>${esc(routine.standingRow(v, query, here, id))}</b> every night until you cancel it` : "None. A standing order sells every night at the crew's cut, wherever you queue no sale of your own."}</p>${st ? `<p class="warn-text">${esc(routine.editingStanding(v, here, id))}</p>` : ""}${lines([routine.dueLine(v, query, here, id), routine.landingLine(v, query, here, id)])}
+<label>Units a night <small class="subtle-text">up to ${routine.standable(v, query, here, id)}</small><input id="standing-qty" type="number" min="1" max="${routine.standable(v, query, here, id)}" placeholder="blank = all of it, every night" value="${st && !st.all ? st.qty : ""}"></label><label>Approach <select id="standing-dial">${["quiet", "normal", "aggressive"].map((d) => `<option value="${d}" ${d === (st?.dial || saleDial) ? "selected" : ""}>${d}</option>`).join("")}</select></label>${sellNo ? `<p class="subtle-text">${esc(sellNo)}</p>` : ""}<p class="danger-text" id="standing-error"></p><div class="card-actions">${btn(st ? "Change the standing order" : "Place standing order", "standing-place", id, "small", !!sellNo || !!v.over)}${st ? btn("Cancel standing order", "standing-cancel", id, "small subtle", !!v.over) : ""}</div>
+<h3>Supply contract</h3>${nos ? `<p class="subtle-text">${esc(nos)}</p>` : `${routine
+      .contractRows(v, query, here, id)
+      .map(([t, tn]) => `<p class="${tone(tn)}">${esc(t[0].toUpperCase() + t.slice(1))}</p>`)
+      .join("") || "<p>None.</p>"}${k && !k.own ? `<p class="subtle-text">Your lieutenant's to keep; a contract of yours takes its place.</p>` : ""}${k?.own ? `<p class="warn-text">${esc(routine.editingContract(v, here, id))}</p>` : ""}<p class="subtle-text">${esc(routine.contractTerms(query))}</p><label>Keep at <small class="subtle-text">up to ${routine.keepMax(v, here, id)}</small><input id="keep-qty" type="number" min="1" max="${routine.keepMax(v, here, id)}" placeholder="blank = what the stash holds" value="${k?.own ? k.units : ""}"></label><p class="danger-text" id="keep-error"></p><div class="card-actions">${btn(k?.own ? "Change the contract" : "Set contract", "keep-set", id, "small", !!v.over)}${k?.own ? btn("Clear contract", "keep-clear", id, "small subtle", !!v.over) : ""}</div>`}`,
+  );
+}
+function routineAction(a, id) {
+  try {
+    const here = v?.you.city;
+    switch (a) {
+      case "routine":
+        routineDialog(id);
+        break;
+      case "standing-place": {
+        const dial = $("#standing-dial").value,
+          r = routine.readStanding(v, query, here, id, $("#standing-qty").value);
+        if (r.err) {
+          $("#standing-error").textContent = r.err;
+          break;
+        }
+        if (act("place_standing", [here, id, r.qty, dial], null, { close: false }) !== null) {
+          notify(routine.standingSaid(v, query, here, id, r.qty, dial));
+          routineDialog(id);
+        }
+        break;
+      }
+      case "standing-cancel":
+        if (act("cancel_standing", [here, id], routine.cancelledSaid, { close: false }) !== null) routineDialog(id);
+        break;
+      case "keep-set": {
+        const r = routine.readKeep(v, here, id, $("#keep-qty").value);
+        if (r.err) {
+          if (r.units) $("#keep-qty").value = r.units;
+          $("#keep-error").textContent = r.err;
+          break;
+        }
+        if (act("set_supply", [here, id, r.units], null, { close: false }) !== null) {
+          notify(routine.keepSaid(v, query, here, id, r.units));
+          routineDialog(id);
+        }
+        break;
+      }
+      case "keep-clear": {
+        const k = routine.contract(v, here, id);
+        if (act("clear_supply", [here, id], routine.clearedSaid(v, here, id, k?.units), { close: false }) !== null) routineDialog(id);
+        break;
+      }
+      case "cart-remove": {
+        // x on a cart line (ui/cart.go removeCartLine): an order is
+        // cancelled, a standing one for good, a contract cleared.
+        const [kind, c, p] = id.split("|"),
+          k = routine.contract(v, c, p);
+        if (kind === "keep") act("clear_supply", [c, p], routine.clearedSaid(v, c, p, k?.units));
+        else if (kind === "standing") act("cancel_standing", [c, p], routine.cancelledSaid);
+        else act("cancel_sell", [c, p], "Order cancelled.");
         break;
       }
       default:
