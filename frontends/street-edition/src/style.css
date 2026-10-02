@@ -1545,3 +1545,19 @@ button.alert-item.notice {
 .crown-card {
   margin-bottom: 18px;
 }
+
+/* A pane's rows (#582): the TUI's label and value, the label small. */
+.pane-row {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0;
+  align-items: baseline;
+}
+.pane-row small {
+  flex: 0 0 7.5em;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.pane-row span {
+  overflow-wrap: anywhere;
+}

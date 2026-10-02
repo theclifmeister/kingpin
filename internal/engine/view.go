@@ -34,8 +34,14 @@ import (
 // city, stance, fall, betrayal and split lines, the lifetime table
 // counters, the fallen, and the ending's title, epilogue and story.
 // 19 (#581) a house's price, rent, day bought and nights the rent has
-// gone unpaid, which Street Edition's owned houses read.
-const ViewVersion = 19
+// gone unpaid, which Street Edition's owned houses read. 20 (#582)
+// what Street Edition's connects, market and route panes and its cart
+// read: the day's buys and the room a city keeps without you; a
+// connect's door, terms and record; a product's glut and the demand your
+// corners serve, and a shock's multiplier; the corners worked; the
+// street's quality; and the day
+// the feds stop watching the skies.
+const ViewVersion = 20
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -82,6 +88,25 @@ type View struct {
 
 	// View 18 (#554).
 	Fallen []FallenView `json:"fallen"` // the crew shot dead on your corners (#46), oldest first
+
+	// View 20 (#582).
+	Buys []BuyView `json:"buys"` // today's buys and what the supply contracts bought this morning (World.Today.Buys), in the order made
+}
+
+// BuyView is a buy made today (game.Purchase): by hand, on a connect's
+// book (Credit), by a lieutenant for you (#174), or by a supply contract
+// this morning (Contract, #113). The cart lists them and returns them.
+type BuyView struct {
+	City       string  `json:"city"`
+	Product    string  `json:"product"`
+	Qty        int     `json:"qty"`
+	Unit       float64 `json:"unit"` // the price paid a unit
+	Cost       int     `json:"cost"` // what it cost, or went on the book
+	Supplier   string  `json:"supplier"`
+	Contract   bool    `json:"contract,omitempty"`
+	Credit     bool    `json:"credit,omitempty"`
+	SmallLot   bool    `json:"small_lot,omitempty"`
+	Lieutenant string  `json:"lieutenant,omitempty"` // the lieutenant who bought it for you
 }
 
 // FallenView is a member of the crew who fell on a corner (#46).
@@ -275,6 +300,10 @@ type YouView struct {
 	// View 18 (#554).
 	Reign     int `json:"reign,omitempty"`      // the day the reign began (#227); 0 no reign
 	ReignSlip int `json:"reign_slip,omitempty"` // the mornings the reign has been under the share (#399)
+
+	// View 20 (#582).
+	Away          map[string]int `json:"away"`           // city id -> the units it holds with you elsewhere (World.CapacityAway, #524): where you stand, its capacity without your carry
+	StreetQuality float64        `json:"street_quality"` // the quality a lot is sold at by default (World.StreetQuality, #47)
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -291,6 +320,9 @@ type CityView struct {
 	Products []ProductView `json:"products"`
 	Corners  []CornerView  `json:"corners"`
 	Campaign *CampaignView `json:"campaign,omitempty"` // the money behind a DA ticket here (#193, #550)
+
+	// View 20 (#582).
+	Worked int `json:"worked"` // the corners worked here (World.WorkedIn), the demand's "on N corners"
 }
 
 // RungView is one rung of a city's police ladder (#355): the heat it
@@ -317,6 +349,11 @@ type ProductView struct {
 	Slump         bool       `json:"slump,omitempty"`
 	History       []float64  `json:"history"`
 	Facts         PriceFacts `json:"facts"`
+
+	// View 20 (#582).
+	Glut   float64 `json:"glut"`            // oversupply from recent selling, which pushes the price down (ProductMarket.Glut)
+	Served float64 `json:"served"`          // the demand your corners here serve a day (World.Demand)
+	Shock  float64 `json:"shock,omitempty"` // the shock's or the slump's multiplier on the price while ShockDays run
 }
 
 // CornerView is a corner on the map.
@@ -467,6 +504,21 @@ type ConnectView struct {
 	Rel        float64            `json:"rel"`
 	Debt       int                `json:"debt,omitempty"`
 	DebtDue    int                `json:"debt_due,omitempty"`
+
+	// View 20 (#582): the door, the terms and the record, as the TUI's
+	// SUPPLIERS block and the connect's pane read them.
+	DayCap      int                `json:"day_cap"`                // units they get you a day; Cap is what is left of it today
+	Products    []string           `json:"products"`               // what they deal in; empty is everything sold in the city
+	Quality     map[string]float64 `json:"quality"`                // product id -> the quality they sell it at, where it is not the street's
+	SmallLot    float64            `json:"small_lot,omitempty"`    // the price multiplier on a buy under the lot; 1 none
+	CreditRatio float64            `json:"credit_ratio,omitempty"` // the price multiplier on a unit taken on credit
+	Locked      bool               `json:"locked,omitempty"`       // the door is not open to you yet ...
+	UnlockCash  int                `json:"unlock_cash,omitempty"`  // ... until you have moved this much
+	UnlockRel   float64            `json:"unlock_rel,omitempty"`   // ... and the street connect there is at this rel
+	FrozenUntil int                `json:"frozen_until,omitempty"` // the day they take calls again, while they will not
+	Warned      bool               `json:"warned,omitempty"`       // they tipped you off today
+	Late        int                `json:"late,omitempty"`         // payments you have missed, lifetime
+	Extended    bool               `json:"extended,omitempty"`     // a patient connect has let this debt ride once already
 }
 
 // HouseView is a stash house.
@@ -597,6 +649,9 @@ type LawView struct {
 	SellCap       float64 `json:"sell_cap,omitempty"`        // a patrol's cap: the share of demand any sale moves, wherever ...
 	SellCapDays   int     `json:"sell_cap_days,omitempty"`   // ... for this many days more ...
 	SellCapCity   string  `json:"sell_cap_city,omitempty"`   // ... set by the patrol in this city
+
+	// View 20 (#582).
+	WatchUntil int `json:"watch_until,omitempty"` // the feds watch the skies until this day (#48): the plane route's risk is the file's before it
 }
 
 // CardView is the dilemma card waiting for an answer.
@@ -778,7 +833,8 @@ func (s *Session) View() View {
 		}
 	}
 	street := map[string]map[string]int{} // city -> product -> units, built here so the view shares no map with the world
-	v.You.Quality, v.You.Room = map[string]map[string]float64{}, map[string]int{}
+	v.You.Quality, v.You.Room, v.You.Away = map[string]map[string]float64{}, map[string]int{}, map[string]int{}
+	v.You.StreetQuality = w.StreetQuality()
 	for _, cid := range w.CityOrder {
 		c := w.Cities[cid]
 		stock, quality := map[string]int{}, map[string]float64{}
@@ -789,8 +845,8 @@ func (s *Session) View() View {
 			}
 		}
 		street[cid] = stock
-		v.You.Quality[cid], v.You.Room[cid] = quality, w.Free(cid)
-		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill}
+		v.You.Quality[cid], v.You.Room[cid], v.You.Away[cid] = quality, w.Free(cid), w.CapacityAway(cid)
+		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill, Worked: w.WorkedIn(cid)}
 		// Today's backing included (World.Campaigning, #552), as the
 		// TUI's race reads it: money put behind a ticket shows at once.
 		if cp := w.Campaigning(cid); cp.Ticket != "" || cp.Cash > 0 {
@@ -814,7 +870,11 @@ func (s *Session) View() View {
 				ID: pid, Name: p.Name, Price: p.Price, SupplierPrice: p.SupplierPrice, Demand: p.Demand,
 				NoSupply: p.NoSupply, ShockDays: p.ShockDays, Slump: p.ShockDays > 0 && p.ShockSlump,
 				History: append([]float64(nil), p.History...), Facts: Facts(p),
+				Glut: p.Glut, Served: w.Demand(cid, pid),
 			})
+			if p.ShockDays > 0 {
+				cv.Products[len(cv.Products)-1].Shock = p.ShockFactor
+			}
 		}
 		for _, k := range c.Corners {
 			cv.Corners = append(cv.Corners, CornerView{
@@ -907,10 +967,21 @@ func (s *Session) View() View {
 	}
 	for i := range w.Suppliers {
 		sup := &w.Suppliers[i]
-		cv := ConnectView{ID: sup.ID, Name: sup.Name, City: sup.City, Wholesale: sup.Wholesale, Temper: sup.Temper, Open: sup.Open(w), Owned: sup.Owned, Prices: map[string]float64{}, Cap: sup.Left(), Lot: sup.Lot, CreditDays: sup.CreditDays, Limit: sup.Limit, Rel: sup.Rel, Debt: sup.Debt, DebtDue: sup.DebtDue}
+		cv := ConnectView{ID: sup.ID, Name: sup.Name, City: sup.City, Wholesale: sup.Wholesale, Temper: sup.Temper, Open: sup.Open(w), Owned: sup.Owned, Prices: map[string]float64{}, Cap: sup.Left(), Lot: sup.Lot, CreditDays: sup.CreditDays, Limit: sup.Limit, Rel: sup.Rel, Debt: sup.Debt, DebtDue: sup.DebtDue,
+			DayCap: sup.Cap, Products: append([]string{}, sup.Products...), Quality: map[string]float64{}, CreditRatio: sup.CreditRatio, Locked: sup.Locked(w), UnlockCash: sup.UnlockCash, UnlockRel: sup.UnlockRel,
+			Warned: sup.Warned == w.Day && w.Day > 0, Late: sup.Late, Extended: sup.Extended}
+		if sup.SmallLot > 1 {
+			cv.SmallLot = sup.SmallLot
+		}
+		if sup.Frozen(w.Day) {
+			cv.FrozenUntil = sup.FrozenUntil
+		}
 		for _, pid := range w.Products {
 			if w.Available(sup, pid) {
 				cv.Prices[pid] = sup.Price[pid]
+			}
+			if q := sup.QualityOf(w, pid); sup.Sells(pid) && q != w.StreetQuality() {
+				cv.Quality[pid] = q
 			}
 		}
 		v.Connects = append(v.Connects, cv)
@@ -946,6 +1017,11 @@ func (s *Session) View() View {
 	v.Orders = orderViews(w.Today.Orders)
 	v.Standing = orderViews(w.Standing)
 	v.Supply = s.supplyViews()
+	v.Buys = []BuyView{}
+	for _, b := range w.Today.Buys {
+		v.Buys = append(v.Buys, BuyView{City: b.City, Product: b.Product, Qty: b.Qty, Unit: b.UnitPrice, Cost: b.Cost, Supplier: b.Supplier,
+			Contract: b.Contract, Credit: b.Credit, SmallLot: b.SmallLot, Lieutenant: b.Lieutenant})
+	}
 	v.Exports = s.laneViews()
 	for _, t := range w.Trophies {
 		v.Trophies = append(v.Trophies, TrophyView{ID: t.ID, Name: t.Name, Cost: t.Cost, Bought: t.Bought})
@@ -988,6 +1064,9 @@ func (s *Session) View() View {
 	}
 	if w.Law.DABoughtOn(w.Day) {
 		v.Law.DABought = w.Law.DABought
+	}
+	if w.Heat.WatchUntil > w.Day {
+		v.Law.WatchUntil = w.Heat.WatchUntil
 	}
 	if h := w.Heat; h.SellCapDays > 0 && h.SellCap > 0 {
 		v.Law.SellCap, v.Law.SellCapDays, v.Law.SellCapCity = h.SellCap, h.SellCapDays, h.SellCapCity

@@ -2072,6 +2072,49 @@
       ],
       "type": "object"
     },
+    "engine.BuyView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "boolean"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "credit": {
+          "type": "boolean"
+        },
+        "lieutenant": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "qty": {
+          "type": "integer"
+        },
+        "small_lot": {
+          "type": "boolean"
+        },
+        "supplier": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "city",
+        "product",
+        "qty",
+        "unit",
+        "cost",
+        "supplier"
+      ],
+      "type": "object"
+    },
     "engine.CampaignView": {
       "properties": {
         "cash": {
@@ -2238,6 +2281,9 @@
         },
         "response_sure": {
           "type": "number"
+        },
+        "worked": {
+          "type": "integer"
         }
       },
       "required": [
@@ -2248,7 +2294,8 @@
         "goodwill",
         "ladder",
         "products",
-        "corners"
+        "corners",
+        "worked"
       ],
       "type": "object"
     },
@@ -2292,17 +2339,35 @@
         "credit_days": {
           "type": "integer"
         },
+        "credit_ratio": {
+          "type": "number"
+        },
+        "day_cap": {
+          "type": "integer"
+        },
         "debt": {
           "type": "integer"
         },
         "debt_due": {
           "type": "integer"
         },
+        "extended": {
+          "type": "boolean"
+        },
+        "frozen_until": {
+          "type": "integer"
+        },
         "id": {
           "type": "string"
         },
+        "late": {
+          "type": "integer"
+        },
         "limit": {
           "type": "integer"
+        },
+        "locked": {
+          "type": "boolean"
         },
         "lot": {
           "type": "integer"
@@ -2322,11 +2387,35 @@
           },
           "type": "object"
         },
+        "products": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "quality": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
         "rel": {
+          "type": "number"
+        },
+        "small_lot": {
           "type": "number"
         },
         "temper": {
           "type": "string"
+        },
+        "unlock_cash": {
+          "type": "integer"
+        },
+        "unlock_rel": {
+          "type": "number"
+        },
+        "warned": {
+          "type": "boolean"
         },
         "wholesale": {
           "type": "boolean"
@@ -2341,7 +2430,10 @@
         "prices",
         "cap",
         "lot",
-        "rel"
+        "rel",
+        "day_cap",
+        "products",
+        "quality"
       ],
       "type": "object"
     },
@@ -3226,6 +3318,9 @@
         },
         "sell_cap_days": {
           "type": "integer"
+        },
+        "watch_until": {
+          "type": "integer"
         }
       },
       "required": [
@@ -3484,6 +3579,9 @@
         "facts": {
           "$ref": "#/$defs/engine.PriceFacts"
         },
+        "glut": {
+          "type": "number"
+        },
         "history": {
           "items": {
             "type": "number"
@@ -3500,6 +3598,12 @@
           "type": "boolean"
         },
         "price": {
+          "type": "number"
+        },
+        "served": {
+          "type": "number"
+        },
+        "shock": {
           "type": "number"
         },
         "shock_days": {
@@ -3519,7 +3623,9 @@
         "supplier_price",
         "demand",
         "history",
-        "facts"
+        "facts",
+        "glut",
+        "served"
       ],
       "type": "object"
     },
@@ -4149,6 +4255,12 @@
           },
           "type": "array"
         },
+        "buys": {
+          "items": {
+            "$ref": "#/$defs/engine.BuyView"
+          },
+          "type": "array"
+        },
         "card": {
           "$ref": "#/$defs/engine.CardView"
         },
@@ -4326,7 +4438,8 @@
         "standing",
         "supply",
         "stats",
-        "fallen"
+        "fallen",
+        "buys"
       ],
       "type": "object"
     },
@@ -4334,6 +4447,12 @@
       "properties": {
         "ambition": {
           "type": "string"
+        },
+        "away": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
         },
         "bodies": {
           "type": "integer"
@@ -4428,6 +4547,9 @@
           },
           "type": "object"
         },
+        "street_quality": {
+          "type": "number"
+        },
         "sweep_keep": {
           "type": "integer"
         },
@@ -4476,7 +4598,9 @@
         "score",
         "bodies",
         "quality",
-        "room"
+        "room",
+        "away",
+        "street_quality"
       ],
       "type": "object"
     },
@@ -17043,5 +17167,5 @@
   },
   "protocol": 28,
   "title": "kingpind",
-  "view_version": 19
+  "view_version": 20
 }

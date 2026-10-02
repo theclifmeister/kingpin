@@ -722,10 +722,111 @@ if (!session.view.over) {
     clean(property.droppedSaid(h, units), "the drop's answer");
   }
 }
+// The connects, the market pane, the routes and the cart's buys (#582):
+// market.js's, routes.js's and routine.js's words on the live run; a buy
+// for cash and one on a connect's book, each in the cart from view 20's
+// buys at the quote the page shows and returned as the cart returns it;
+// a route's days target set and cleared; the presets reviewed in names.
+if (!session.view.over) {
+  const market = await import(pathToFileURL(path.join(dist, "market.js")));
+  const roads = await import(pathToFileURL(path.join(dist, "routes.js")));
+  const routine = await import(pathToFileURL(path.join(dist, "routine.js")));
+  const q = (m, ...p) => session.call(m, ...p),
+    clean = (s, what) => assert.ok(typeof s === "string" && !/undefined|NaN|\[object/.test(s), `${what}: ${s}`);
+  let v = session.refresh();
+  const here = v.you.city;
+  assert.ok(Array.isArray(v.buys) && v.you.away && typeof v.you.street_quality === "number", "view 20's buys, away and street quality");
+  for (const c of v.connects) {
+    assert.ok(typeof c.day_cap === "number" && Array.isArray(c.products) && c.quality, `${c.id}: view 20's connect fields`);
+    clean(market.note(v, c)[0], "a connect's note");
+    for (const [l, t] of market.pane(v, q, c)) clean(l + t, `${c.name}'s pane`);
+    for (const [t] of market.blurb(v, c)) clean(t, "a connect's blurb");
+    clean(market.paneRules(q, c), "the connect's rules");
+    clean(market.howToBuy(v, q, c), "how to buy");
+  }
+  assert.ok(market.connectsIn(v, here).length, "connects where you stand");
+  assert.deepEqual([-2, 0, 1, 3].map(market.dueWord), ["2 days late", "today", "tomorrow", "in 3 days"]);
+  clean(market.whyNobodySells(v, here), "nobody sells");
+  for (const c of v.cities)
+    for (const p of c.products) {
+      for (const [l, t] of [...market.productPane(v, q, c.id, p.id), ...market.elsewhere(v, c.id, p.id)]) clean(l + t, `${p.id}'s pane`);
+      for (const [t] of market.notes(v, q, c.id, p.id)) clean(t, "a market note");
+      assert.equal(typeof p.glut, "number", "view 20's glut");
+    }
+  assert.match(market.productPane(v, q, here, "weed")[1][0], /^glut$/);
+  // A cash buy: the quote is what it costs, the cart lists it, and the
+  // return gives it back.
+  const sup = market.sellers(v, "weed")[0];
+  if (sup && session.maxBuy(sup.id, "weed").max >= 2) {
+    const want = market.quote(sup, "weed", 2, false),
+      p = q("buy", sup.id, "weed", 2, false);
+    assert.equal(p.Cost, want, "the quote is the cost");
+    clean(market.boughtSaid(v, sup, "weed", p), "the buy's answer");
+    v = session.refresh();
+    const line = routine.cart(v, q).find((l) => l.kind === "buy" && l.product === "weed" && l.city === here);
+    assert.ok(line && line.qty >= 2, "the buy is in the cart");
+    clean(routine.cartLine(v, line), "a buy's cart line");
+    assert.match(routine.cartTotals(routine.cart(v, q)), /^Buying \d+ lines? for \$/);
+    const refund = q(routine.giveBack(line), line.city, line.product, line.qty);
+    assert.ok(refund > 0, "the return gives the cash back");
+    clean(routine.returned(v, line, line.qty, refund), "the return's answer");
+    assert.ok(!session.refresh().buys.some((b) => b.city === here && b.product === "weed" && !b.contract && !b.credit), "returned");
+  }
+  // On the book, where a connect gives credit.
+  v = session.refresh();
+  const lender = v.connects.find((c) => c.city === here && c.open && market.credit(c) > 0 && market.available(c, "weed"));
+  if (lender && q("max_buy", lender.id, "weed", true).max >= 1) {
+    const want = market.quote(lender, "weed", 1, true);
+    for (const [t] of market.creditTerms(v, lender, "weed", 1)) clean(t, "the credit terms");
+    const p = q("buy", lender.id, "weed", 1, true);
+    assert.ok(p.Credit && p.Cost === want, "a buy on the book at the quote");
+    v = session.refresh();
+    const line = routine.cart(v, q).find((l) => l.kind === "credit");
+    assert.ok(line, "the credit buy is in the cart");
+    assert.match(routine.cartLine(v, line), / on the book$/);
+    assert.match(routine.cartTotals(routine.cart(v, q)), /on credit/);
+    q("return_credit", line.city, line.product, line.qty);
+    assert.ok(!session.refresh().buys.some((b) => b.credit), "off the book");
+  }
+  // The room where you stand is counted without your carry (#524).
+  v = session.refresh();
+  assert.ok(v.you.away[here] <= v.you.room[here] + Object.values(v.you.stock[here] || {}).reduce((n, x) => n + x, 0), "the room without you is no more than the stash's");
+  assert.match(routine.contractRoom(v, here, "weed", 1e6), / without you: your carry leaves with you/);
+  for (const t of routine.contractsLeft(v, here)) clean(t, "a contract left behind");
+  // The routes: every pane row reads, a days target sets and clears.
+  for (const r of v.routes) {
+    for (const [l, t] of roads.facts(v, q, r)) clean(l + t, `${r.id}'s pane`);
+    clean(roads.targetIntro(v, q, r), "the target's intro");
+    for (const x of roads.targetRows(v, q, r)) clean(x.name + x.target, "a target row");
+  }
+  const r = v.routes.find((x) => x.from === here || x.to === here) || v.routes[0];
+  if (r) {
+    for (const [l, t] of roads.preview(v, q, r, "weed", 3, true)) clean(l + t, "a target preview");
+    q("set_route_days", r.id, "weed", 3);
+    v = session.refresh();
+    const rr = v.routes.find((x) => x.id === r.id);
+    assert.match(roads.targetLine(v, q, rr), /^3d \(≈\d+\) Weed/);
+    clean(roads.targetSaid(v, q, rr, "weed", 3, true), "the target's answer");
+    q("set_route_days", r.id, "weed", 0);
+    assert.equal(roads.targetLine(session.refresh(), q, session.view.routes.find((x) => x.id === r.id)), roads.targetLine(v, q, r), "cleared");
+    clean(roads.driverSaid(v, q, r, 0), "nobody drives");
+  }
+  // The presets in names, and the upgrades' prerequisites.
+  for (const pr of session.presets()) {
+    const rv = session.presetDiff(pr.id);
+    for (const c of rv.changes) {
+      clean(routine.changeName(v, c), "a change's name");
+      clean(routine.changeEstimate(v, q, c), "a change's estimate");
+      assert.doesNotMatch(routine.changeName(v, c), /_/, "a change in words");
+    }
+    for (const x of rv.refused) clean(routine.commandName(v, x.command), "a refused command");
+  }
+  for (const u of v.upgrades) for (const x of routine.requiresNames(v, u)) assert.ok(v.upgrades.some((w) => w.name === x.name), `${u.id} requires by name`);
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, and save round-trip.`,
 );
 process.exit(0);

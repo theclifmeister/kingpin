@@ -4,8 +4,10 @@
 // ui/fast.go supplyShortWords). Each function takes the view and `q`,
 // the engine's query (session.call), and returns words, rows or
 // numbers: it touches no DOM, so smoke.mjs checks them on a live run.
-// The cart is read off the view (`orders`, `standing`, `supply`), never
-// a memo of the page's.
+// The cart is read off the view (`buys`, `orders`, `standing`, `supply`),
+// never a memo of the page's. The preset review's names and estimates
+// (ui/presets.go) and the upgrades' prerequisites by name are here too:
+// presets are bundles of the routine's dials.
 
 const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n || 0)).toLocaleString("en-US"),
   price = (n) => "$" + (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -131,14 +133,34 @@ export function contractTerms(q) {
   return `Topped up at the end of each day, before the night's sales, at ${times(q("rules.market.markup"))} the supplier's price. It fills as far as the room and the cash allow.`;
 }
 
+// held is what a city's stash holds of every product (World.StockIn).
+const held = (v, city) => Object.values(v.you.stock?.[city] || {}).reduce((n, x) => n + x, 0);
+
 // contractRoom is the warning a contract set at level gets when the
-// city cannot hold it (#524), "" when it can. Where you stand the TUI
-// counts the room without your carry; the view has the room as it is,
-// so this edition says that only for a city away.
+// city cannot hold it (#524), "" when it can. Where you stand it counts
+// the room without your carry (`you.away`, World.CapacityAway), which
+// leaves with you.
 export function contractRoom(v, city, id, level) {
-  if (!(level > 0) || city === v.you.city) return "";
+  if (!(level > 0)) return "";
+  const other = held(v, city) - stock(v, city, id);
+  if (city === v.you.city) {
+    const room = Math.max(0, (v.you.away?.[city] || 0) - other);
+    return room < level ? `${cityName(v, city)} holds ${room} of it without you: your carry leaves with you, and the contract fills only that far once you go.` : "";
+  }
   const room = (v.you.room?.[city] || 0) + stock(v, city, id);
   return room < level ? `The stash in ${cityName(v, city)} has room for ${Math.max(0, room)} of it: the contract fills only that far.` : "";
+}
+
+// contractsLeft is what leaving a city says of your contracts there
+// (#524): each whose level the city cannot hold once you go.
+export function contractsLeft(v, city) {
+  const out = [];
+  for (const c of v.supply || []) {
+    if (c.city !== city || c.lieutenant) continue;
+    const room = Math.max(0, (v.you.away?.[city] || 0) - (held(v, city) - stock(v, city, c.product)));
+    if (room < c.units) out.push(`The ${productName(v, c.product)} contract (keep ${c.units}) has room for ${room} once you go: your carry leaves with you.`);
+  }
+  return out;
 }
 
 // contractBringsNone is why the contract standing for a product brings
@@ -214,12 +236,13 @@ export function keepSaid(v, q, city, id, units) {
 export const clearedSaid = (v, city, id, units) => `Contract cleared: ${productName(v, id)} in ${cityName(v, city)} is no longer kept at ${units}.`;
 export const cancelledSaid = "Standing order cancelled.";
 
-// estimate is what an order is expected to move and take (the TUI's
-// orderEstimate): a standing order sells at most what may be sold, and
-// its take is after the crew's cut.
+// estimate is what an order is expected to move, take and cost in heat
+// (the TUI's orderEstimate): a standing order sells at most what may be
+// sold, and its take is after the crew's cut; the heat is the sale's
+// and the sloppy runners' (estHeat).
 export function estimate(v, q, o, isStanding) {
   const p = productIn(v, o.city, o.product);
-  if (!p) return { units: 0, take: 0 };
+  if (!p) return { units: 0, take: 0, heat: 0 };
   let qty = o.qty,
     cut = 0;
   if (isStanding) {
@@ -228,17 +251,38 @@ export function estimate(v, q, o, isStanding) {
     cut = q("rules.market.cut");
   }
   const units = Math.min(qty, q("rules.market.capacity", o.city, o.product, o.dial));
-  return { units, take: Math.floor(units * p.price * q("rules.market.dial", o.dial).Price * (1 - cut)) };
+  return {
+    units,
+    take: Math.floor(units * p.price * q("rules.market.dial", o.dial).Price * (1 - cut)),
+    heat: q("rules.heat.sale_heat", o.city, o.product, qty, o.dial) + q("rules.heat.sloppy_heat", o.city, units),
+  };
 }
 
-// cart is the day's sell orders and the contracts, read off the view
-// (the TUI's cartModalLines, ui/cart.go): each order queued, each
-// standing order of yours that sells tonight where you placed no order
-// of the day (never on a quiet day: nothing sells), then each contract
-// of yours as a keep line, in city and ladder order. A line is {kind:
-// "sell" | "standing" | "keep", city, product, qty, dial, take}.
+// cart is the day's shopping, read off the view (the TUI's
+// cartModalLines, ui/cart.go): the day's buys in the order made, merged
+// per city and product and kept apart by how they were paid (by hand,
+// on a connect's book, or by a contract this morning), each order
+// queued, each standing order of yours that sells tonight where you
+// placed no order of the day (never on a quiet day: nothing sells), then
+// each contract of yours as a keep line, in city and ladder order. A
+// line is {kind: "buy" | "credit" | "morning" | "sell" | "standing" |
+// "keep", city, product, qty, ...}: a buy's unit and cost, an order's
+// dial and take.
 export function cart(v, q) {
-  const lines = [];
+  const lines = [],
+    at = {};
+  for (const b of v.buys || []) {
+    const kind = b.contract ? "morning" : b.credit ? "credit" : "buy",
+      k = `${kind} ${b.city}/${b.product}`;
+    if (k in at) {
+      lines[at[k]].qty += b.qty;
+      lines[at[k]].cost += b.cost;
+      continue;
+    }
+    at[k] = lines.length;
+    lines.push({ kind, city: b.city, product: b.product, qty: b.qty, cost: b.cost });
+  }
+  for (const l of lines) l.unit = l.qty > 0 ? l.cost / l.qty : 0;
   for (const c of v.cities)
     for (const p of c.products) {
       let o = order(v, c.id, p.id),
@@ -266,6 +310,12 @@ export function cartLine(v, l) {
   const what = `${l.qty} ${productName(v, l.product)}`,
     where = l.city === v.you.city ? "" : ` in ${cityName(v, l.city)}`;
   switch (l.kind) {
+    case "buy":
+      return `Buy ${what}${where} · ${price(l.unit)} · ${money(l.cost)}`;
+    case "credit":
+      return `Credit ${what}${where} · ${price(l.unit)} · ${money(l.cost)} on the book`;
+    case "morning":
+      return `Morning ${what}${where} · ${price(l.unit)} · ${money(l.cost)} by contract this morning`;
     case "keep":
       return `Keep ${what}${where} · ~${l.due} tonight`;
     case "standing":
@@ -274,14 +324,120 @@ export function cartLine(v, l) {
   return `Sell ${what}${where} · ${dialShort(l.dial)} · ~${money(l.take)}`;
 }
 
-// cartTotals is the cart's bottom line, the TUI's: "Selling 2 lines
-// (1 standing), ~$1,200 · 1 contract kept"; "" for an empty cart.
+// isBuy is whether a cart line is one of the day's buys.
+export const isBuy = (l) => l.kind === "buy" || l.kind === "credit" || l.kind === "morning";
+
+// cartTotals is the cart's bottom line, the TUI's: "Buying 2 lines for
+// $785 (1 by contract this morning) · Selling 2 lines (1 standing),
+// ~$1,200 · 1 contract kept"; "" for an empty cart. What went on a
+// connect's book counts in the buying, not in the spending.
 export function cartTotals(lines) {
-  const sells = lines.filter((l) => l.kind !== "keep"),
+  const buys = lines.filter(isBuy),
+    sells = lines.filter((l) => !isBuy(l) && l.kind !== "keep"),
     standingN = sells.filter((l) => l.kind === "standing").length,
-    keeps = lines.length - sells.length,
+    keeps = lines.filter((l) => l.kind === "keep").length,
+    contracts = buys.filter((l) => l.kind === "morning").length,
+    credits = buys.filter((l) => l.kind === "credit").length,
     parts = [];
+  if (buys.length) {
+    let line = `Buying ${plural(buys.length, "line")} for ${money(buys.reduce((n, l) => n + l.cost, 0))}`;
+    if (contracts && credits) line += ` (${contracts} by contract this morning, ${credits} on credit)`;
+    else if (contracts) line += ` (${contracts} by contract this morning)`;
+    else if (credits) line += ` (${credits} on credit)`;
+    parts.push(line);
+  }
   if (sells.length) parts.push(`Selling ${plural(sells.length, "line")}${standingN ? ` (${standingN} standing)` : ""}, ~${money(sells.reduce((n, l) => n + l.take, 0))}`);
   if (keeps) parts.push(`${plural(keeps, "contract")} kept`);
   return parts.join(" · ");
+}
+
+// giveBack is the command that returns a buy line (ui/cart.go giveBack):
+// a contract's morning buy, a buy on the book, or a buy for cash.
+export const giveBack = (l) => (l.kind === "morning" ? "return_supplied" : l.kind === "credit" ? "return_credit" : "return");
+
+// returned is the answer to a return: what came back to the till, or,
+// for a credit line, what came off the book (#72).
+export function returned(v, l, qty, refund) {
+  return l.kind === "credit" ? `Returned ${qty} ${productName(v, l.product)}: off the book.` : `Returned ${qty} ${productName(v, l.product)}, ${money(refund)} back.`;
+}
+
+// morningNote is the cart's sentence under a contract's morning buy
+// (#444): what the contract keeps against what it brought this morning.
+export function morningNote(v, l) {
+  const c = contract(v, l.city, l.product);
+  if (!c || !c.own) return `Bought this morning by a contract since cleared: ${l.qty} ${productName(v, l.product)}.`;
+  return `The contract keeps ${c.units}; it brought ${l.qty} this morning. Its level is its keep line below.`;
+}
+
+// The preset review (ui/presets.go). DIALS are game.SellOrder's dial
+// numbers on the wire.
+const DIALS = ["quiet", "normal", "aggressive"];
+const routeName = (v, id) => (v.routes || []).find((r) => r.id === id)?.name || id;
+
+// changeName is the setting a change moves, as the review names it.
+export function changeName(v, c) {
+  switch (c.setting) {
+    case "standing":
+      return `standing ${productName(v, c.product)}, ${cityName(v, c.city)}`;
+    case "supply":
+      return `contract ${productName(v, c.product)}, ${cityName(v, c.city)}`;
+    case "launder":
+      return "launder dial";
+    case "pay":
+      return "pay dial";
+    case "route":
+      return "route " + routeName(v, c.route);
+    case "target":
+      return `target ${productName(v, c.product)}, ${routeName(v, c.route)}`;
+    case "lie_low":
+      return "lie low today";
+  }
+  return c.setting;
+}
+
+// commandName is what a refused command was for.
+export function commandName(v, c) {
+  if (c.city && c.product) return `${productName(v, c.product)}, ${cityName(v, c.city)}`;
+  if (c.route) return routeName(v, c.route);
+  return c.op;
+}
+
+// changeEstimate is a change's estimate, "~" before it: a standing
+// order's take and heat a night (as a share where the order stands
+// before and after, in money and heat where it comes or goes), a
+// contract's buy tomorrow morning, and the orders lying low drops
+// tonight; "" with none.
+export function changeEstimate(v, q, c) {
+  const signedMoney = (n) => (n >= 0 ? "+" : "-") + money(Math.abs(n)),
+    signedPct = (f) => (f >= 0 ? "+" : "") + (Math.abs(f) < 10 ? f.toFixed(1) : f.toFixed(0)) + "%",
+    order = (o) => ({ city: o.City, product: o.Product, qty: o.Qty, dial: DIALS[o.Dial] || "normal", all: o.All });
+  switch (c.setting) {
+    case "standing": {
+      const a = c.was ? estimate(v, q, order(c.was), true) : { take: 0, heat: 0 },
+        b = c.now ? estimate(v, q, order(c.now), true) : { take: 0, heat: 0 };
+      if (c.was && c.now && a.take > 0 && a.heat > 0) return `~take ${signedPct(((b.take - a.take) / a.take) * 100)}, heat ${signedPct(((b.heat - a.heat) / a.heat) * 100)}`;
+      return `~take ${signedMoney(b.take - a.take)}, heat ${(b.heat - a.heat >= 0 ? "+" : "") + (b.heat - a.heat).toFixed(1)}`;
+    }
+    case "supply":
+      return (c.cost || 0) === (c.cost_to || 0) ? "" : `~${signedMoney((c.cost_to || 0) - (c.cost || 0))} a morning`;
+    case "lie_low":
+      return c.dropped > 0 ? `drops ${plural(c.dropped, "order")} tonight` : "";
+  }
+  return "";
+}
+
+// presetSaid is the answer to a preset applied: the settings changed,
+// and the first refusal where the rules refused any.
+export function presetSaid(r) {
+  const say = `${r.preset.name}: ${plural(r.changes.length, "setting")} changed.`;
+  return r.refused.length ? `${say} ${plural(r.refused.length, "command")} refused: ${r.refused[0].why}.` : say;
+}
+
+// requiresNames are an upgrade's prerequisites by name, each marked
+// owned or missing: [{name, owned}].
+export function requiresNames(v, u) {
+  return u.requires.map((id) => {
+    const r = v.upgrades.find((x) => x.id === id);
+    return { name: r?.name || id, owned: r?.state === "owned" };
+  });
 }

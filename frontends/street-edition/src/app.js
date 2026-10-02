@@ -12,6 +12,8 @@ import * as endings from "./endings.js?v=__BUILD_REVISION__";
 import * as table from "./rivals.js?v=__BUILD_REVISION__";
 import * as routine from "./routine.js?v=__BUILD_REVISION__";
 import * as property from "./property.js?v=__BUILD_REVISION__";
+import * as market from "./market.js?v=__BUILD_REVISION__";
+import * as roads from "./routes.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -283,7 +285,7 @@ function renderBusiness() {
   for (const a of v.alerts) h += alertButton(a);
   if (v.you.lie_low)
     h += `<div class="todo">${icon("sun")}<div><span>A quiet night</span><small>${esc(law.lieLowSaid(v))}</small></div></div>`;
-  const queued = [...routine.cart(v, query).filter((l) => l.kind !== "keep").map((l) => routine.cartLine(v, l)), ...orders.map((o) => o.text)];
+  const queued = [...routine.cart(v, query).filter((l) => l.kind !== "keep" && !routine.isBuy(l)).map((l) => routine.cartLine(v, l)), ...orders.map((o) => o.text)];
   h += queued
     .slice(0, 4)
     .map(
@@ -321,16 +323,12 @@ function dispatch() {
 }
 function renderMarket() {
   const c = city(),
-    con = v.connects.filter((x) => x.city === c.id && x.open && !x.wholesale),
     stock = v.you.stock[c.id] || {};
-  return `${marketTools()}<div class="paper" style="margin-bottom:17px"><div class="row"><div><div class="eyebrow">YOUR CONNECT</div><h3>${con.length ? esc(con[0].name) : "No open supplier"}</h3><p class="subtle-text">All purchases use dirty cash. Supplier prices are estimates; the engine applies the final terms.</p></div>${btn("Transport routes", "routes", "", "small")}</div>${v.connects
-    .filter((k) => k.debt > 0)
-    .map((k) => `<p class="debt" id="connect-${k.id}"><b>${esc(k.name)}</b>: ${money(k.debt)} owed, due day ${k.debt_due}</p>`)
-    .join("")}</div><div class="table-wrap"><table class="data-table"><thead><tr><th>PRODUCT</th><th>BUY / SELL</th><th>STOCK</th><th>QUANTITY</th><th>YOUR MOVE</th></tr></thead><tbody>${c.products
+  return `${marketTools()}${suppliersHTML(c.id)}<div class="table-wrap"><table class="data-table"><thead><tr><th>PRODUCT</th><th>BUY / SELL</th><th>STOCK</th><th>QUANTITY</th><th>YOUR MOVE</th></tr></thead><tbody>${c.products
     .map((p) => {
-      const supplier = con.find((x) => x.prices[p.id] != null),
+      const supplier = market.sellers(v, p.id)[0],
         room = supplier ? session.maxBuy(supplier.id, p.id) : null;
-      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small>${routineRowsHTML(c.id, p.id)}</td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${routine.stock(v, c.id, p.id)}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, routine.stock(v, c.id, p.id) || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !routine.sellable(v, query, c.id, p.id) || !!v.over)} ${btn("Routine", "routine", p.id, "small subtle", !!v.over)}</td></tr>`;
+      return `<tr id="product-${p.id}"><td><b>${esc(p.name)}</b><br><small class="subtle-text">Demand ${Math.round(p.demand)}</small>${routineRowsHTML(c.id, p.id)}</td><td>${supplier ? money(supplier.prices[p.id]) : "—"} / ${money(p.price)}</td><td>${routine.stock(v, c.id, p.id)}${labQualityHTML(p.id)}${room ? `<br><small>Stash ${room.held}/${room.capacity}</small>` : ""}</td><td><input aria-label="${esc(p.name)} quantity" type="number" min="1" max="99999" value="${Math.min(10, routine.stock(v, c.id, p.id) || 10)}" id="qty-${p.id}">${supplier ? btn("Max " + room.max, "max-buy", p.id, "small subtle", !room.max || !!v.over) : ""}</td><td>${btn("Buy", "buy", p.id, "small", !supplier || !room?.max || !!v.over)} ${btn("Sell", "sell", p.id, "small", !routine.sellable(v, query, c.id, p.id) || !!v.over)} ${btn("Routine", "routine", p.id, "small subtle", !!v.over)} ${btn("Details", "product-pane", p.id, "small subtle")}</td></tr>`;
     })
     .join(
       "",
@@ -400,7 +398,7 @@ function renderEmpire() {
     .filter((u) => branch === "all" || u.branch === branch)
     .map(
       (u) =>
-        `<article class="card"><div class="card-top"><span class="tag ${u.state === "owned" ? "" : "gold"}">${esc(u.branch)}</span><small>${esc(u.state)}</small></div><h3>${esc(u.name)}</h3><p>${esc(u.desc)}</p>${u.requires.length ? `<p>Requires: ${u.requires.map(esc).join(", ")}</p>` : ""}<div class="row"><span><strong>${money(u.cost)}</strong> <small>${u.clean ? "clean" : "dirty"}</small></span>${btn(u.state === "owned" ? "Owned ✓" : "Buy upgrade", "upgrade", u.id, "small", u.state !== "available" || v.you[u.clean ? "clean_cash" : "dirty_cash"] < u.cost || !!v.over)}</div></article>`,
+        `<article class="card"><div class="card-top"><span class="tag ${u.state === "owned" ? "" : "gold"}">${esc(u.branch)}</span><small>${esc(u.state)}</small></div><h3>${esc(u.name)}</h3><p>${esc(u.desc)}</p>${u.requires.length ? `<p>Requires: ${routine.requiresNames(v, u).map((r) => `<span class="${r.owned ? "good-text" : ""}">${esc(r.name)}${r.owned ? " ✓" : ""}</span>`).join(", ")}</p>` : ""}<div class="row"><span><strong>${money(u.cost)}</strong> <small>${u.clean ? "clean" : "dirty"}</small></span>${btn(u.state === "owned" ? "Owned ✓" : "Buy upgrade", "upgrade", u.id, "small", u.state !== "available" || v.you[u.clean ? "clean_cash" : "dirty_cash"] < u.cost || !!v.over)}</div></article>`,
     )
     .join("")}</div>`;
 }
@@ -408,7 +406,7 @@ function renderEmpire() {
 // them (wash.js): the till and its control, the wash idle under it, a
 // route waiting on a lot, the fronts the night is expected to shut; a
 // front's status and why; an offer's terms, its lock and its shut.
-const tone = (t) => ({ warn: "warn-text", danger: "danger-text", subtle: "subtle-text", good: "good-text", gold: "warn-text" })[t] || "";
+const tone = (t) => ({ warn: "warn-text", danger: "danger-text", bad: "danger-text", subtle: "subtle-text", good: "good-text", gold: "warn-text", road: "subtle-text" })[t] || "";
 function washPanelHTML(p) {
   const t = wash.till(query),
     lines = wash.washLines(v, query, p);
@@ -616,17 +614,9 @@ function routes() {
     `<div class="eyebrow">ACROSS THE WATER</div><h2>Transport & supply</h2>${v.routes
       .map(
         (r) =>
-          `<div class="report-section"><div class="row"><h3>${esc(r.name)}</h3><span class="tag">${esc(r.mode)}</span></div><p>${esc(r.from)} → ${esc(r.to)} · ${r.risk_known ? "Risk " + Math.round(r.risk * 100) + "%" : "Risk unknown"}</p>${routeIdleHTML(r)}${checkpointHTML(r)}<select id="route-${r.id}">${["off", "slow", "normal", "fast"].map((x) => `<option ${x === r.dial ? "selected" : ""}>${x}</option>`).join("")}</select>${btn("Set pace", "route", r.id, "small")}<div class="card-actions"><select id="product-${r.id}">${city()
-            .products.map(
-              (p) => `<option value="${p.id}">${esc(p.name)}</option>`,
-            )
-            .join(
-              "",
-            )}</select><input style="width:90px" id="units-${r.id}" type="number" min="0" value="10" aria-label="Target units">${btn("Set target", "route-target", r.id, "small")}</div></div>`,
+          `<div class="report-section" id="route-${esc(r.id)}"><div class="row"><h3>${esc(r.name)}</h3><span class="tag">${esc(r.mode)}</span></div>${routeIdleHTML(r)}${paneRowsHTML(roads.facts(v, query, r))}${checkpointHTML(r)}<div class="card-actions"><select id="route-${r.id}" aria-label="The dial">${["off", "slow", "normal", "fast"].map((x) => `<option ${x === r.dial ? "selected" : ""}>${x}</option>`).join("")}</select>${btn("Set pace", "route", r.id, "small", !!v.over)}${btn("Set a target", "route-targets", r.id, "small", !!v.over)}${btn("Driver", "route-driver", r.id, "small subtle", !!v.over)}</div></div>`,
       )
-      .join(
-        "",
-      )}<h3>In transit</h3>${v.shipments.length ? v.shipments.map((x) => `<p>${esc(x.product)} · ${x.units} units</p>`).join("") : "<p>No shipments on the road.</p>"}`,
+      .join("")}`,
   );
 }
 // routeIdleHTML is why a route on its dial sends nothing (#459, #537).
@@ -674,7 +664,7 @@ function exportFile() {
   notify("Save exported");
 }
 async function action(a, id) {
-  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id) || propertyAction(a, id)) return;
+  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id) || propertyAction(a, id) || supplyAction(a, id)) return;
   try {
     switch (a) {
       case "close":
@@ -691,11 +681,17 @@ async function action(a, id) {
         selectedCity = id;
         render();
         break;
-      case "travel":
-        act("travel", [id], "Arrived in " + id);
-        selectedCity = id;
-        render();
+      case "travel": {
+        const left = routine.contractsLeft(v, v.you.city),
+          go = () => {
+            act("travel", [id], "Arrived in " + cityName(id));
+            selectedCity = id;
+            render();
+          };
+        if (left.length) confirm(`Leave ${cityName(v.you.city)} for ${cityName(id)}?`, left.map((t) => [t, "warn-text"]), go);
+        else go();
         break;
+      }
       case "corner":
         cornerModal(id);
         break;
@@ -732,32 +728,9 @@ async function action(a, id) {
           { order: { key: "cut-" + id, text: "Undercut " + id } },
         );
         break;
-      case "buy": {
-        const sup = v.connects.find(
-          (x) =>
-            x.city === city().id &&
-            x.open &&
-            !x.wholesale &&
-            x.prices[id] != null,
-        );
-        const qty = integer("#qty-" + id),
-          room = session.maxBuy(sup.id, id);
-        if (qty > room.max) {
-          notify(
-            `You can buy at most ${room.max} units with your cash and stash space.`,
-            true,
-          );
-          $("#qty-" + id).value = Math.max(1, room.max);
-          break;
-        }
-        const kept = routine.keptLine(v, city().id, id);
-        confirm(
-          "Buy this stock?",
-          [`${qty} ${id}. Stash after purchase: ${room.held + qty} / ${room.capacity}.`, ...(kept ? [[kept, "subtle-text"]] : [])],
-          () => act("buy", [sup.id, id, qty, false], "Stock purchased"),
-        );
+      case "buy":
+        buyDialog(id);
         break;
-      }
       case "sell": {
         // Sized for what lands tonight (#503): that comes after the
         // sales, so only a standing order counts on it.
@@ -1056,14 +1029,6 @@ async function action(a, id) {
         break;
       case "route":
         act("set_route", [id, $("#route-" + id).value], "Route pace changed");
-        routes();
-        break;
-      case "route-target":
-        act(
-          "set_route_target",
-          [id, $("#product-" + id).value, integer("#units-" + id)],
-          "Route target set",
-        );
         routes();
         break;
     }
@@ -1501,13 +1466,7 @@ function alignedAction(a, id) {
         act("pin_ambition", [id], id ? "Plan pinned" : "Plan unpinned");
         break;
       case "max-buy": {
-        const sup = v.connects.find(
-          (x) =>
-            x.city === v.you.city &&
-            x.open &&
-            !x.wholesale &&
-            x.prices[id] != null,
-        );
+        const sup = market.sellers(v, id)[0];
         $("#qty-" + id).value = session.maxBuy(sup.id, id).max;
         break;
       }
@@ -1541,19 +1500,12 @@ function alignedAction(a, id) {
         notify(`${bought} units purchased`);
         break;
       }
-      case "preset-review": {
-        const r = session.presetDiff($("#preset-id").value);
-        modal(
-          `<div class="eyebrow">REVIEW THE ROUTINE</div><h2>${esc(r.preset.name)}</h2><p>${esc(r.preset.blurb)}</p>${r.changes.map((c) => `<p><b>${esc([c.setting, c.city, c.product, c.route].filter(Boolean).join(" "))}</b><br>${esc(c.from)} → ${esc(c.to)}${c.dropped ? ` · drops ${c.dropped} orders tonight` : ""}</p>`).join("") || "<p>No settings would change.</p>"}<p>${r.same} settings stay as they are.</p>${r.refused.map((x) => `<p class="danger-text">Not changed: ${esc(x.why)}</p>`).join("")}${btn("Apply preset", "preset-apply", r.preset.id, "primary", !r.changes.length)}`,
-        );
+      case "preset-review":
+        presetReview($("#preset-id").value);
         break;
-      }
       case "preset-apply": {
-        const r = act("apply_preset", [id], "Routine updated");
-        if (r) {
-          if (r.refused.length)
-            notify(r.refused.map((x) => x.why).join("; "), true);
-        }
+        const r = act("apply_preset", [id], null);
+        if (r) notify(routine.presetSaid(r), r.refused.length > 0);
         break;
       }
       case "lieutenant-city":
@@ -1898,9 +1850,9 @@ function routineRowsHTML(cityId, id) {
 function cartHTML() {
   const lines = routine.cart(v, query);
   if (!lines.length && !orders.length) return "";
-  const remove = { sell: "Cancel", standing: "Cancel standing", keep: "Clear" };
+  const remove = { sell: "Cancel", standing: "Cancel standing", keep: "Clear", buy: "Return", credit: "Return", morning: "Return" };
   return `<h3 class="section-gap" id="cart">Tonight’s orders</h3>${lines.length ? `<p class="subtle-text">${esc(routine.cartTotals(lines))}</p>` : ""}${lines
-    .map((l) => `<div class="order-item" id="cart-${l.kind}-${esc(l.city)}-${esc(l.product)}">${esc(routine.cartLine(v, l))} <button class="quiet-link" data-action="cart-remove" data-id="${l.kind}|${esc(l.city)}|${esc(l.product)}" ${v.over ? "disabled" : ""}>${remove[l.kind]}</button></div>`)
+    .map((l) => `<div class="order-item" id="cart-${l.kind}-${esc(l.city)}-${esc(l.product)}">${esc(routine.cartLine(v, l))}${l.kind === "morning" ? `<br><small class="subtle-text">${esc(routine.morningNote(v, l))}</small>` : ""} <button class="quiet-link" data-action="cart-remove" data-id="${l.kind}|${esc(l.city)}|${esc(l.product)}" ${v.over ? "disabled" : ""}>${remove[l.kind]}</button></div>`)
     .join("")}${orders.map((o) => `<div class="order-item">${esc(o.text)}</div>`).join("")}`;
 }
 // routineDialog is a product's routine where you stand: its standing
@@ -1971,7 +1923,11 @@ function routineAction(a, id) {
         // cancelled, a standing one for good, a contract cleared.
         const [kind, c, p] = id.split("|"),
           k = routine.contract(v, c, p);
-        if (kind === "keep") act("clear_supply", [c, p], routine.clearedSaid(v, c, p, k?.units));
+        const line = routine.cart(v, query).find((l) => l.kind === kind && l.city === c && l.product === p);
+        if (line && routine.isBuy(line)) {
+          const refund = act(routine.giveBack(line), [c, p, line.qty], null);
+          if (refund !== null) notify(routine.returned(v, line, line.qty, refund));
+        } else if (kind === "keep") act("clear_supply", [c, p], routine.clearedSaid(v, c, p, k?.units));
         else if (kind === "standing") act("cancel_standing", [c, p], routine.cancelledSaid);
         else act("cancel_sell", [c, p], "Order cancelled.");
         break;
@@ -2130,6 +2086,217 @@ function propertyAction(a, id) {
         confirm(`Drop ${h.name}?`, [ask, units > 0 ? [what, "danger-text"] : what], () => {
           if (act("drop", [id], null) !== null) notify(property.droppedSaid(h, units));
         });
+        break;
+      }
+      default:
+        return false;
+    }
+  } catch (e) {
+    notify(e.message, true);
+  }
+  return true;
+}
+
+// The connects, the market pane, the buy and the routes (#582), worded
+// by market.js and routes.js as the TUI's SUPPLIERS block and connect's
+// pane, the market's product pane, the buy dialog's connect and pay
+// steps, and the map's route pane and target dialog; the preset review
+// by routine.js.
+function paneRowsHTML(rows) {
+  return rows.map(([label, text, t]) => `<p class="pane-row"><small>${esc(label.toUpperCase())}</small><span class="${tone(t)}">${esc(text)}</span></p>`).join("");
+}
+// suppliersHTML is the market's SUPPLIERS block for a city: one row a
+// connect with the lot, what they have left today, the relationship and
+// the note, and the debt line where you owe.
+function suppliersHTML(cityId) {
+  const rows = market.connectsIn(v, cityId),
+    debt = market.debtLine(v);
+  return `<div class="paper suppliers" id="suppliers" style="margin-bottom:17px"><div class="row"><div><div class="eyebrow">SUPPLIERS · ${esc(cityName(cityId).toUpperCase())}</div><p class="subtle-text">All purchases use dirty cash, or a connect's book on credit.</p></div>${btn("Transport routes", "routes", "", "small")}</div>${debt ? `<p class="${tone(debt[1])}">${esc(debt[0])}</p>` : ""}${
+    rows.length
+      ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>CONNECT</th><th>LOT</th><th>LEFT</th><th>REL</th><th></th></tr></thead><tbody>${rows
+          .map((c) => {
+            const r = market.row(c, ""),
+              [n, t] = market.note(v, c);
+            return `<tr id="connect-${esc(c.id)}"><td><b>${esc(c.name)}</b>${c.wholesale ? ' <small class="subtle-text">wholesale</small>' : ""}</td><td>${r.lot}</td><td>${r.left.toLocaleString("en-US")}</td><td>${r.rel}</td><td><small class="${tone(t)}">${esc(n)}</small> ${btn("Details", "connect-pane", c.id, "small subtle")}</td></tr>`;
+          })
+          .join("")}</tbody></table></div>`
+      : '<p class="subtle-text">Nobody sells here. Yet.</p>'
+  }</div>`;
+}
+function connectPane(id) {
+  const c = v.connects.find((x) => x.id === id),
+    how = market.howToBuy(v, query, c);
+  modal(
+    `<div class="eyebrow">A CONNECT · ${esc(cityName(c.city).toUpperCase())}</div><h2>${esc(c.name)}</h2>${paneRowsHTML(market.pane(v, query, c))}${how ? `<p>${esc(how)}</p>` : ""}<h3>Rules</h3><p class="subtle-text">${esc(market.paneRules(query, c))}</p><div class="card-actions">${btn("Back", "close", "", "subtle")}</div>`,
+  );
+}
+function productPane(id) {
+  const c = city(),
+    p = c.products.find((x) => x.id === id),
+    st = routine.standingRow(v, query, c.id, id),
+    rows = [...market.productPane(v, query, c.id, id), ...(st ? [["standing", st, "gold"]] : []), ...routine.contractRows(v, query, c.id, id).map(([t, k], i) => [i ? "" : "contract", t, k])],
+    away = market.elsewhere(v, c.id, id),
+    notes = market.notes(v, query, c.id, id);
+  modal(
+    `<div class="eyebrow">THE MARKET · ${esc(c.name.toUpperCase())}</div><h2>${esc(p.name)}</h2>${paneRowsHTML(rows)}${away.length ? `<h3>Elsewhere</h3>${paneRowsHTML(away)}` : ""}${notes.length ? `<h3>Notes</h3>${notes.map(([t, k]) => `<p class="${tone(k)}">${esc(t)}</p>`).join("")}` : ""}<div class="card-actions">${btn("Back", "close", "", "subtle")}</div>`,
+  );
+}
+// buyDialog is the buy (ui/dialogs.go): the connects that sell it here,
+// cheapest first, with their price, lot, what is left and the note; the
+// quantity; cash or their book; and what the buy comes to.
+function buyDialog(id) {
+  const cs = market.sellers(v, id);
+  if (!cs.length) {
+    notify(market.whyNobodySells(v, v.you.city), true);
+    return;
+  }
+  const qty = integer("#qty-" + id) || 1;
+  modal(
+    `<div class="eyebrow">STOCK UP</div><h2>Buy ${esc(routine.productName(v, id))}</h2>${cs
+      .map((c, i) => {
+        const [n, t] = market.note(v, c);
+        return `<label class="choice"><span><input type="radio" name="buy-connect" value="${esc(c.id)}" data-input="buy" ${i === 0 ? "checked" : ""}> <b>${esc(c.name)}</b> · ${market.row(c, id).unit != null ? "$" + c.prices[id].toFixed(2) : "—"} · lot ${c.lot} · ${c.cap.toLocaleString("en-US")} left · rel ${Math.round(c.rel)} <small class="${tone(t)}">${esc(n)}</small></span></label>`;
+      })
+      .join(
+        "",
+      )}<label>Quantity<input id="buy-qty" data-input="buy" type="number" min="1" value="${qty}" aria-label="Units to buy"></label><label class="choice"><span><input type="radio" name="buy-pay" value="cash" data-input="buy" checked> Cash</span></label><label class="choice"><span><input type="radio" name="buy-pay" value="credit" data-input="buy" id="buy-credit"> Credit, on their book</span></label><div id="buy-preview"></div><p class="danger-text" id="buy-error"></p><div class="card-actions">${btn("Buy", "buy-go", id, "primary", !!v.over)}${btn("Keep playing", "close", "", "subtle")}</div>`,
+  );
+  buyPreview(id);
+}
+function buyChoice(id) {
+  const c = v.connects.find((x) => x.id === $('input[name="buy-connect"]:checked')?.value) || market.sellers(v, id)[0],
+    onCredit = $('input[name="buy-pay"]:checked')?.value === "credit",
+    qty = integer("#buy-qty"),
+    cashMax = session.maxBuy(c.id, id).max,
+    bookMax = query("max_buy", c.id, id, true).max;
+  return { c, onCredit, qty, cashMax, bookMax };
+}
+function buyPreview(id) {
+  if (!$("#buy-preview")) return;
+  const { c, onCredit, qty, cashMax, bookMax } = buyChoice(id),
+    room = session.maxBuy(c.id, id),
+    lines = [...market.blurb(v, c)];
+  $("#buy-credit").disabled = market.credit(c) <= 0;
+  if (onCredit) lines.push(...market.creditTerms(v, c, id, qty));
+  else {
+    const short = market.cashShort(c, qty, cashMax, bookMax);
+    lines.push(short ? [short, "warn"] : [`${money(market.quote(c, id, qty, false))} dirty, up to ${cashMax}. Bought now, once.`, "subtle"]);
+  }
+  lines.push([`Stash after: ${room.held + qty} / ${room.capacity}`, room.held + qty > room.capacity ? "bad" : "subtle"]);
+  const kept = routine.keptLine(v, v.you.city, id);
+  if (kept) lines.push([kept, "subtle"]);
+  $("#buy-preview").innerHTML = lines.map(([t, k]) => `<p class="${tone(k)}">${esc(t)}</p>`).join("");
+}
+// presetReview is the preset's review (ui/presets.go viewPresets): each
+// setting it moves, from what to what, with the estimate.
+function presetReview(pid) {
+  const r = session.presetDiff(pid);
+  modal(
+    `<div class="eyebrow">REVIEW THE ROUTINE</div><h2>${esc(r.preset.name)}</h2><p>${esc(r.preset.blurb)}</p>${
+      r.changes.length
+        ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>SETTING</th><th>NOW</th><th>AFTER</th><th>ESTIMATE</th></tr></thead><tbody>${r.changes.map((c) => `<tr><td>${esc(routine.changeName(v, c))}</td><td>${esc(c.from)}</td><td><b>${esc(c.to)}</b></td><td><small class="subtle-text">${esc(routine.changeEstimate(v, query, c))}</small></td></tr>`).join("")}</tbody></table></div>`
+        : '<p class="subtle-text">Nothing would change: the routine is set that way already.</p>'
+    }${r.same ? `<p class="subtle-text">${plural(r.same, "other setting")} of the routine stay as they are.</p>` : ""}${r.refused.map((x) => `<p class="danger-text">Refused, left as it is: ${esc(routine.commandName(v, x.command))}: ${esc(x.why)}.</p>`).join("")}${btn("Apply preset", "preset-apply", r.preset.id, "primary", !r.changes.length || !!v.over)}`,
+  );
+}
+// targetDialog is a route's targets (ui/routes.go viewTarget): what it
+// does and buys, each product's target and where it stands, and the
+// field with its kind and preview.
+function targetDialog(rid, pid) {
+  const r = v.routes.find((x) => x.id === rid),
+    rows = roads.targetRows(v, query, r);
+  pid ||= rows[0]?.id;
+  const days = r.days_target?.[pid] > 0;
+  modal(
+    `<div class="eyebrow">TARGET · ${esc(r.name.toUpperCase())}</div><h2>Keep ${esc(cityName(r.to))} stocked</h2><p class="subtle-text">${esc(roads.targetIntro(v, query, r))}</p><div class="table-wrap"><table class="data-table"><thead><tr><th>PRODUCT</th><th>TARGET</th><th>THERE</th><th>ROAD</th><th>SELLS/DAY</th></tr></thead><tbody>${rows.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.target || "—")}</td><td>${x.there}</td><td>${x.road}</td><td>~${x.sells}</td></tr>`).join("")}</tbody></table></div><label>Product<select id="target-product" data-change="target-product" data-route="${esc(rid)}">${rows.map((x) => `<option value="${x.id}" ${x.id === pid ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label><label class="choice"><span><input type="radio" name="target-kind" value="units" data-input="target" ${days ? "" : "checked"}> Units</span></label><label class="choice"><span><input type="radio" name="target-kind" value="days" data-input="target" ${days ? "checked" : ""}> Days of demand</span></label><p class="subtle-text" id="target-kind-line"></p><label>Target<input id="target-n" data-input="target" type="number" min="0" placeholder="blank = none" value="${(days ? r.days_target[pid] : r.target?.[pid]) || ""}"></label><div id="target-preview"></div><p class="danger-text" id="target-error"></p><div class="card-actions">${btn("Set target", "target-set", rid, "primary", !!v.over)}${btn("Back", "routes", "", "subtle")}</div>`,
+  );
+  targetPreview();
+}
+function targetChoice() {
+  const rid = $("#target-product").dataset.route;
+  return { r: v.routes.find((x) => x.id === rid), pid: $("#target-product").value, days: $('input[name="target-kind"]:checked')?.value === "days" };
+}
+function targetPreview() {
+  if (!$("#target-preview")) return;
+  const { r, pid, days } = targetChoice(),
+    got = roads.readTarget($("#target-n").value);
+  $("#target-kind-line").textContent = roads.kindLine(v, r, pid, days) + ` Up to ${roads.targetMax(v, r, pid, days)}.`;
+  $("#target-preview").innerHTML = got.n > 0 ? paneRowsHTML(roads.preview(v, query, r, pid, got.n, days)) : "";
+}
+function driverDialog(rid) {
+  const r = v.routes.find((x) => x.id === rid),
+    ds = roads.drivers(v);
+  if (!ds.length) {
+    notify(roads.noDrivers, true);
+    return;
+  }
+  modal(
+    `<div class="eyebrow">THE ROAD</div><h2>Who drives ${esc(r.name)}?</h2>${[{ id: 0, name: "Nobody" }, ...ds].map((m) => `<button class="choice" data-action="driver-set" data-id="${esc(rid)}|${m.id}"><b>${esc(m.name)}</b>${m.id ? ` · skill ${m.skill} · risk −${Math.round(query("rules.logistics.driver_cut", m.skill) * 100)}%` : ""}${m.id && m.id === r.driver ? " · driving it" : ""}${m.route && m.route !== rid ? ` · drives ${esc(v.routes.find((x) => x.id === m.route)?.name || m.route)}` : ""}</button>`).join("")}<div class="card-actions">${btn("Back", "routes", "", "subtle")}</div>`,
+  );
+}
+document.addEventListener("input", (e) => {
+  const kind = e.target.dataset?.input;
+  if (kind === "buy") buyPreview(e.target.closest("dialog")?.querySelector('[data-action="buy-go"]')?.dataset.id);
+  else if (kind === "target") targetPreview();
+});
+document.addEventListener("change", (e) => {
+  if (e.target.dataset?.input === "buy") buyPreview(e.target.closest("dialog")?.querySelector('[data-action="buy-go"]')?.dataset.id);
+  else if (e.target.dataset?.input === "target") targetPreview();
+  else if (e.target.dataset?.change === "target-product") targetDialog(e.target.dataset.route, e.target.value);
+});
+function supplyAction(a, id) {
+  try {
+    switch (a) {
+      case "connect-pane":
+        connectPane(id);
+        break;
+      case "product-pane":
+        productPane(id);
+        break;
+      case "buy-go": {
+        const { c, onCredit, qty, cashMax, bookMax } = buyChoice(id),
+          most = onCredit ? bookMax : cashMax;
+        if (!(qty > 0)) {
+          $("#buy-error").textContent = "Enter a whole number above zero.";
+          break;
+        }
+        if (qty > most) {
+          const short = !onCredit && market.cashShort(c, qty, cashMax, bookMax);
+          $("#buy-error").textContent = short || (most > 0 ? `${c.name} can sell you ${most} of it now; the quantity is now ${most}, what fits.` : market.whyNobodySells(v, v.you.city));
+          if (most > 0) $("#buy-qty").value = most;
+          buyPreview(id);
+          break;
+        }
+        const p = act("buy", [c.id, id, qty, onCredit], null);
+        if (p !== null) notify(market.boughtSaid(v, c, id, p));
+        break;
+      }
+      case "route-targets":
+        targetDialog(id);
+        break;
+      case "target-set": {
+        const { r, pid, days } = targetChoice(),
+          got = roads.readTarget($("#target-n").value);
+        if (got.err) {
+          $("#target-error").textContent = got.err;
+          break;
+        }
+        if (act(days ? "set_route_days" : "set_route_target", [r.id, pid, got.n], null, { close: false }) !== null) {
+          notify(roads.targetSaid(v, query, v.routes.find((x) => x.id === r.id), pid, got.n, days));
+          targetDialog(r.id, pid);
+        }
+        break;
+      }
+      case "route-driver":
+        driverDialog(id);
+        break;
+      case "driver-set": {
+        const [rid, mid] = id.split("|"),
+          r = v.routes.find((x) => x.id === rid);
+        if (act("set_route_driver", [rid, Number(mid)], null, { close: false }) !== null) {
+          notify(roads.driverSaid(v, query, r, Number(mid)));
+          routes();
+        }
         break;
       }
       default:
