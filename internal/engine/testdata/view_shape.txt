@@ -1,4 +1,4 @@
-version 19
+version 20
 .version int
 .seed uint64
 .day int
@@ -52,6 +52,9 @@ version 19
 .you.room{} int
 .you.reign int
 .you.reign_slip int
+.you.away map[string]
+.you.away{} int
+.you.street_quality float64
 .cities []
 .cities[].id string
 .cities[].name string
@@ -85,6 +88,9 @@ version 19
 .cities[].products[].facts.lo float64
 .cities[].products[].facts.hi float64
 .cities[].products[].facts.margin float64
+.cities[].products[].glut float64
+.cities[].products[].served float64
+.cities[].products[].shock float64
 .cities[].corners []
 .cities[].corners[].id string
 .cities[].corners[].name string
@@ -100,6 +106,7 @@ version 19
 .cities[].campaign.ticket string
 .cities[].campaign.cash int
 .cities[].campaign.hedged bool
+.cities[].worked int
 .crew []
 .crew[].id int
 .crew[].name string
@@ -229,6 +236,20 @@ version 19
 .connects[].rel float64
 .connects[].debt int
 .connects[].debt_due int
+.connects[].day_cap int
+.connects[].products []
+.connects[].products[] string
+.connects[].quality map[string]
+.connects[].quality{} float64
+.connects[].small_lot float64
+.connects[].credit_ratio float64
+.connects[].locked bool
+.connects[].unlock_cash int
+.connects[].unlock_rel float64
+.connects[].frozen_until int
+.connects[].warned bool
+.connects[].late int
+.connects[].extended bool
 .houses []
 .houses[].id string
 .houses[].name string
@@ -337,6 +358,7 @@ version 19
 .law.sell_cap float64
 .law.sell_cap_days int
 .law.sell_cap_city string
+.law.watch_until int
 .card.id string
 .card.title string
 .card.text string
@@ -514,3 +536,14 @@ version 19
 .fallen[].name string
 .fallen[].role string
 .fallen[].day int
+.buys []
+.buys[].city string
+.buys[].product string
+.buys[].qty int
+.buys[].unit float64
+.buys[].cost int
+.buys[].supplier string
+.buys[].contract bool
+.buys[].credit bool
+.buys[].small_lot bool
+.buys[].lieutenant string
