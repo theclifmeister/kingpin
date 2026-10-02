@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575, #560, #589 and #588. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575, #560, #589, #588 and #555. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -18,7 +18,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Alerts | Their answers: investigate, call in the favour, back a ticket, raise the till | done (#551, #552, #553) |
 | Alerts | `file`, `crew_line`, `investigation`, `reign`, `contract_due`, `scouts` words | done (#549) |
 | Alerts | Every other clause of `ui/alerts.go` | done (#573: the remedies and the missing facts; `webLeavesOut` keeps only the TUI's own way in and the retirement line, which the two count apart) |
-| Turn flow | Fast-forward, holds, the most severe stop (`ui/fast.go`) | open #555 |
+| Turn flow | Fast-forward, holds, the most severe stop (`ui/fast.go`) | done (#555: End days with the cap, refused by a hold in the alert's words, the stop line in red for a danger; the paper keeps only the stopping day's report, where the TUI's journal has every day's headlines) |
 | Turn flow | End-day preview: danger styling, `unknown`, delivered, the wash (`ui/daypreview.go`) | done (#549) |
 | Turn flow | The morning's danger alarm (`ui/model.go` `morning`) | done (#549, a red toast) |
 | Dashboard | Warrant marked on the risk panel; other cities' heat; "one file, every city" | done (#549) |
@@ -67,6 +67,22 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# Fast-forward (#555, protocol 29 / view 23)
+
+The web had no fast-forward: a long run was a click a day. It now runs the engine's (`fast_forward`) and implements #541's written rule by reading the engine, not a copied list: `Session.FastForward` decides what stops (a danger, an ending, an answer, a turn; never a notice), `holds` says when it will not start, and the answer's `danger` styles the stop. The page only words it, in `src/fast.js`, pure, ported from `ui/fast.go`:
+
+- The control: End days, under End the day, opens a dialog with the TUI's sentence on the cap (`Run up to 7 days, stopping when something needs you.`), a days field (blank is 7, at most 30, `up to 30 days at a time` and `enter a whole number above zero` as the TUI's field refuses), the footer that states the rule, and End N days. A card waiting is answered first, as End the day answers it.
+- The hold (`fastHeld`, #518): while `holds` names an alert (a warrant out, broke tonight) the control is refused in a red toast, `Fast-forward will not run tonight: <the alert's words>. Deal with it, or end the day by hand.`, and no night runs.
+- The stop line (`stopWhy`, `stopEvent`, `fileNumbers`): a banner over the page, `Stopped after 6 days: Marco at the Velvet Room is asking.`, amber, or red and `on a danger` for a danger stop with the file after it (`, file 1/7: 6 pages from an indictment`; not on the file's, the pages' or the warrant's own alerts, which carry it). An alert stop is the alert's words (`alertText`), with Go to it landing where it is answered (`landing.js`); an event stop is the TUI's words for that event; a stage, a card and the cap are `a new stage`, `a card to answer`, `the cap`. It stands until the next day ends, a new story or an import. The stage and the card open after it as after End the day, and a morning on a danger rings its red toast.
+
+Protocol 29: `fast_forward`'s answer named the event's kind only, and the stopping morning's events hold others of the kind that did not stop (a corner taken from a rival, their crew shot, an offer where you could not answer it, filtered by the session's memory), so the web could not tell which one to word. The answer now carries the event (`payload`), as its notification does: existing state, no rule moved, and no stop changed. `TestFastForwardCarriesTheEvent` pins it. Nothing about when fast-forward stops changed.
+
+Checks:
+
+- `TestStreetFastWords`: `fast.js` words every event kind the TUI's `stopEvent` words, and no other, so a kind the stop rule moves fails here by name once the TUI moves.
+- `smoke.mjs`: the cap's blank, bounds and refusals; `fileClose`; seed 11 fast-forwarded to its stops (the first `Stopped after 6 days: Marco at the Velvet Room is asking.`, then rivals and cards), each line the TUI's form, its tone the answer's `danger`, an event stop carrying its event and worded (never its bare kind), an alert stop in the alert's words; until on day 38 the run is broke tonight, `holds` names it, the refusal is the alert's words, and `fast_forward` runs no night; a danger event stop with the file's numbers; the cap; no line for a run that ended.
+- Chromium (Playwright headless, 1280×900 and 390×844): a fresh seed-41 run, End days, 31 refused, 30 runs and stops on day 6 on the buyer in an amber banner, the toast `Ran 6 days.`; a crafted save with a warrant out (seed 41, day 10) refuses End days in the red toast and runs no day; a crafted save with the crew's one hire an informant (seed 7) stops twice on a new stage, then on day 5 `Stopped after 3 days on a danger: No bust, and the DA's file grew 1 page: …` in red with the red toast, and Go to it lands on Your people. No page errors; no horizontal scroll at 390.
 
 # A front's washed today (#588, protocol 28 / view 23)
 

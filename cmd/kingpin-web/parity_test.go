@@ -303,3 +303,47 @@ func TestStreetGlossary(t *testing.T) {
 		}
 	}
 }
+
+// TestStreetFastWords (#555): Street Edition's fast.js words every
+// event that can stop a fast-forward, the kinds the TUI's stopEvent
+// words (ui/fast.go, held to the engine's stop rule by
+// TestEveryStopHasWords), and no other: which events stop is the
+// engine's (engine/stoprule.go), and a kind the rule moves into or out
+// of the stops moves the TUI's words and then fails here by name.
+func TestStreetFastWords(t *testing.T) {
+	t.Parallel()
+	kinds := func(path, fn string, re *regexp.Regexp) []string {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := string(src)
+		i := strings.Index(body, fn)
+		if i < 0 {
+			t.Fatalf("%s has no %s", path, fn)
+		}
+		body = body[i:]
+		body = body[:strings.Index(body, "\n}\n")]
+		var out []string
+		for _, m := range re.FindAllStringSubmatch(body, -1) {
+			out = append(out, m[1])
+		}
+		slices.Sort(out)
+		return out
+	}
+	tui := kinds("../../internal/ui/fast.go", "func (m *Model) stopEvent(", regexp.MustCompile(`case events\.(\w+):`))
+	web := kinds("../../frontends/street-edition/src/fast.js", "export function eventWhy(", regexp.MustCompile(`case "(\w+)":`))
+	if len(tui) < 30 {
+		t.Fatalf("only %d kinds in the TUI's stopEvent: the parse is wrong", len(tui))
+	}
+	for _, k := range tui {
+		if !slices.Contains(web, k) {
+			t.Errorf("the TUI words a %s stop and fast.js does not", k)
+		}
+	}
+	for _, k := range web {
+		if !slices.Contains(tui, k) {
+			t.Errorf("fast.js words a %s stop the TUI does not", k)
+		}
+	}
+}

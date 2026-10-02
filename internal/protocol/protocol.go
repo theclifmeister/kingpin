@@ -58,8 +58,9 @@ import (
 // preview as in the view (#549); 27 rules.laundering.float and
 // outlay, the float and the contracts' morning the till keeps (#553);
 // 28 rules.crew.spare and cook_max, the dirty cash a lab order may
-// spend with tonight's wages kept back and the cook's most (#569).
-const Version = 28
+// spend with tonight's wages kept back and the cook's most (#569);
+// 29 fast_forward's payload, the event that stopped it (#555).
+const Version = 29
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

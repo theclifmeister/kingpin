@@ -194,6 +194,7 @@ func init() {
 			}
 			if st.Kind == engine.StopEvent {
 				r.Event = st.Event.Kind()
+				r.Payload = st.Event
 			}
 			return r, nil
 		},
@@ -255,14 +256,18 @@ type DayResult struct {
 // alert or the event's kind that stopped it, and whether the stop is a
 // danger (engine.Stop.Danger, #504, #550): a warrant signed, a task force
 // formed or an investigation opened stops as an event with no alert to
-// read it off.
+// read it off. An event stop carries the event itself (payload, #555),
+// as its notification does: the morning's events hold others of its
+// kind that did not stop (a corner taken from a rival, a crew of
+// theirs shot), and which one did is the engine's to say.
 type FastResult struct {
-	Ran    int           `json:"ran"`
-	Day    int           `json:"day"`
-	Stop   string        `json:"stop"`
-	Alert  *engine.Alert `json:"alert,omitempty"`
-	Event  string        `json:"event,omitempty"`
-	Danger bool          `json:"danger,omitempty"`
+	Ran     int           `json:"ran"`
+	Day     int           `json:"day"`
+	Stop    string        `json:"stop"`
+	Alert   *engine.Alert `json:"alert,omitempty"`
+	Event   string        `json:"event,omitempty"`
+	Payload events.Event  `json:"payload,omitempty"`
+	Danger  bool          `json:"danger,omitempty"`
 }
 
 // TermsParams is game.Terms as the wire spells it.

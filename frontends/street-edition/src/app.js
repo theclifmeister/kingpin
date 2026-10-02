@@ -17,6 +17,7 @@ import * as roads from "./routes.js?v=__BUILD_REVISION__";
 import * as stage from "./stage.js?v=__BUILD_REVISION__";
 import { glossary } from "./glossary.js?v=__BUILD_REVISION__";
 import * as report from "./report.js?v=__BUILD_REVISION__";
+import * as fast from "./fast.js?v=__BUILD_REVISION__";
 import { fixed, money } from "./format.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
@@ -62,6 +63,7 @@ let session,
   selectedCity,
   confirmAction,
   quietBroke = null, // the last night that broke a quiet streak (#465), the PLAN line's; not saved, as the TUI's
+  fastStop = null, // why the last fast-forward stopped (#555, fast.stop), until the next day ends; not saved, as the TUI's
   saleDial = "quiet"; // the sales approach picked, kept across redraws
 // The save's key in this browser. Before #409 this frontend was "Ink &
 // Ambition" and kept it under OLD_SAVE: a save found only there is read
@@ -134,7 +136,11 @@ function act(m, p = [], label = "Done", options = {}) {
       orders = orders.filter((o) => o.key !== options.order.key);
       orders.push(options.order);
     }
-    if (m === "end_day") {
+    // A fast-forward ends days as end_day does (#555): its last
+    // morning's report goes in the paper, the line before it goes.
+    const ended = m === "end_day" || m === "fast_forward";
+    if (ended) fastStop = null;
+    if (ended) {
       orders = [];
       history.unshift({ day: v.day, report: v.report });
       history = history.slice(0, 90);
@@ -144,7 +150,7 @@ function act(m, p = [], label = "Done", options = {}) {
     render();
     if (options.close !== false) $("#sheet").close();
     if (label) notify(label);
-    if (m === "end_day" && !v.over) morning();
+    if (ended && !v.over) morning();
     if (v.over) ending();
     // A command that answers nothing answers true (#552), so a caller
     // can tell it from a refusal, which answers null.
@@ -188,6 +194,8 @@ function render() {
   ])
     $("#" + el).textContent = money(v.you[key]);
   $("#end-day").disabled = !!v.over;
+  $("#fast").disabled = !!v.over;
+  stopBanner();
   $("#end-day").innerHTML = v.over
     ? "Story complete ✓"
     : "End the day <span>→</span>";
@@ -742,7 +750,7 @@ function exportFile() {
   notify("Save exported");
 }
 async function action(a, id) {
-  if (alignedAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id) || propertyAction(a, id) || supplyAction(a, id)) return;
+  if (alignedAction(a, id) || fastAction(a, id) || labAction(a, id) || lawAction(a, id) || routineAction(a, id) || propertyAction(a, id) || supplyAction(a, id)) return;
   try {
     switch (a) {
       case "stage-lanes":
@@ -1094,6 +1102,7 @@ async function action(a, id) {
             v = session.refresh();
             session.take();
             orders = [];
+            fastStop = null;
             history = [];
             selectedCity = null;
             tab = "street";
@@ -1166,6 +1175,7 @@ $("#sheet").addEventListener("click", (e) => {
   }
 });
 $("#end-day").onclick = () => (v.card ? dilemma() : previewTonight());
+$("#fast").onclick = () => fastDialog();
 $("#lie-low").onclick = () => action("lie-low");
 $("#save-menu").onclick = () => v && saveMenu();
 $("#help").onclick = () =>
@@ -1203,6 +1213,7 @@ $("#import-file").onchange = async (e) => {
           v = session.refresh();
           session.take();
           orders = [];
+          fastStop = null;
           history = [];
           selectedCity = null;
           persist();
@@ -1515,6 +1526,96 @@ function morning() {
   const a = v.alerts[0];
   if (a && a.danger) notify(alertText(v, a), true);
 }
+// fastDialog is fast-forward's confirmation (#555, the TUI's F): the
+// cap, blank for fast.DAYS, and the rule it stops by. It is refused
+// with the holding alert's own words while a night stands that ends
+// the run (the holds query: a warrant out, broke tonight), and a card
+// waiting is answered first, as the end of the day answers it.
+function fastDialog() {
+  if (!v || v.over) return;
+  if (v.card) return dilemma();
+  if (fastHeld()) return;
+  modal(
+    `<div class="eyebrow">LET THE DAYS RUN</div><h2>Fast-forward</h2><p id="fast-ask">${esc(fast.ask(fast.DAYS))}</p><label>Days <small class="subtle-text">up to ${fast.MAX}</small><input id="fast-days" data-input="fast" type="number" min="1" max="${fast.MAX}" aria-label="Days to run" placeholder="blank = ${fast.DAYS}"></label><p class="subtle-text">${esc(fast.RULE)}</p><p class="danger-text" id="fast-error"></p><div class="card-actions">${btn(`End ${plural(fast.DAYS, "day")}`, "fast-run", "", "primary")}${btn("Keep planning", "close", "", "subtle")}</div>`,
+  );
+  $("#fast-days").focus();
+}
+// fastHeld refuses the run in a red toast while a night stands that
+// ends the run, and reports whether it did.
+function fastHeld() {
+  const line = fast.held(v, query("holds"));
+  if (line) notify(line, true);
+  return !!line;
+}
+// fastInput reads the field as the dialog types: the sentence and the
+// button on the cap, or why the number does not read.
+function fastInput() {
+  const r = fast.cap($("#fast-days").value);
+  $("#fast-error").textContent = r.error || "";
+  const n = r.days || fast.DAYS;
+  $("#fast-ask").textContent = fast.ask(n);
+  $('[data-action="fast-run"]').textContent = `End ${plural(n, "day")}`;
+}
+// fastRun ends the days the field reads through the engine
+// (fast_forward weighs each night and stops on the first that needs
+// you), then opens that morning as the end of the day does: the stage,
+// the card, the danger's toast, the ending; the banner says why it
+// stopped.
+function fastRun() {
+  const c = fast.cap($("#fast-days").value);
+  if (c.error) {
+    $("#fast-error").textContent = c.error;
+    return;
+  }
+  if (fastHeld()) return;
+  const r = act("fast_forward", [c.days], "");
+  if (r === null) return;
+  if (!r.ran) {
+    // Held between the dialog and the run: the alert is why.
+    if (r.alert) notify(fast.held(v, r.alert), true);
+    return;
+  }
+  fastStop = fast.stop(v, r);
+  render();
+  if (!v.over) {
+    if (!v.alerts[0]?.danger) notify(`Ran ${plural(r.ran, "day")}.`); // else the morning's danger toast stands
+    stageOrCard();
+  }
+}
+// stopBanner draws why the last fast-forward stopped over the page
+// (the TUI's report line, #116, #504): red for a danger, amber for the
+// rest, with the jump to an alert it stopped on (#352).
+function stopBanner() {
+  const el = $("#fast-stop");
+  el.hidden = !fastStop || !!v.over;
+  if (el.hidden) return void (el.innerHTML = "");
+  el.className = "fast-stop " + fastStop.tone;
+  el.innerHTML = `<p>${esc(fastStop.text)}</p>${fastStop.alert ? btn("Go to it →", "fast-jump", "", "small") : ""}<button class="dismiss" data-action="fast-dismiss" aria-label="Dismiss">×</button>`;
+}
+function fastAction(a) {
+  switch (a) {
+    case "fast-run":
+      fastRun();
+      return true;
+    case "fast-jump":
+      openAlert(fastStop?.alert);
+      return true;
+    case "fast-dismiss":
+      fastStop = null;
+      render();
+      return true;
+  }
+  return false;
+}
+document.addEventListener("input", (e) => {
+  if (e.target.dataset?.input === "fast") fastInput();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.id === "fast-days") {
+    e.preventDefault();
+    fastRun();
+  }
+});
 // A lieutenant's line on their card (#455): the city they run or none
 // yet, and their temper with what it does once it has shown.
 function lieutenantStatus(m, lt) {

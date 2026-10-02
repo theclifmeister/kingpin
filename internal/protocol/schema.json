@@ -11173,6 +11173,7 @@
         "event": {
           "type": "string"
         },
+        "payload": {},
         "ran": {
           "type": "integer"
         },
@@ -17223,7 +17224,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 28,
+  "protocol": 29,
   "title": "kingpind",
   "view_version": 23
 }

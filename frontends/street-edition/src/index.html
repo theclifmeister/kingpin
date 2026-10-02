@@ -55,12 +55,15 @@
         <div class="day-actions">
           <button id="end-day" class="button primary">
             End the day <span>→</span></button
+          ><button id="fast" class="button subtle" aria-label="Fast-forward: end several days">
+            End days »</button
           ><small id="save-status">Saved on this device</small>
         </div>
       </header>
       <nav id="nav" aria-label="Game sections"></nav>
       <main class="layout">
         <section class="main-column">
+          <div id="fast-stop" class="fast-stop" role="status" hidden></div>
           <div id="section-heading" class="section-heading"></div>
           <div id="main-content"></div>
         </section>
