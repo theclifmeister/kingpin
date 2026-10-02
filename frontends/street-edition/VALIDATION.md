@@ -2,7 +2,7 @@
 
 What the TUI shows a player and where this edition stands on it. **A PR that adds player information to the TUI adds a row here, or files the web follow-up in the "Street Edition parity" milestone and names it in the row** (`docs/web.md`, "Keeping up with the TUI"). A web PR that closes a gap updates its row. Status: **done (#N)**, the web shows it since issue N; **partial**, with what is left; **open #N**, owned by an open issue; **open, unowned**, needing a follow-up filed; **n/a**, ruled out of scope.
 
-Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575, #560 and #589. #550 added view fields only, so a row is credited to the issue that made the web show them.
+Seeded from the gap report against the TUI at 42d4284 (TUI PRs #455–#547), checked against the code at a334a7e (protocol 27 / view 17), after #548, #549, #550, #551, #552, #553 and #557; rows since updated by #569, #554, #573, #556, #581, #582, #574, #577, #576, #578, #575, #560, #589 and #588. #550 added view fields only, so a row is credited to the issue that made the web show them.
 
 Not counted: the key hints and the frame (#109, #536), since the web is click-driven with a button a row; and what was already shown at 42d4284 (trophies, export lanes, tonight's count, supply-short lines, quiet moves, the paper, card chips).
 
@@ -52,7 +52,7 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Routine | Sweep offshore (`ui/sweep.go`) | done (#581) |
 | Routine | Owned houses with move, guard and drop; owned assets (`ui/houses.go`, `ui/assets.go`) | done (#581); an asset's "feds looked" and a lost asset are not on the view |
 | Routine | Connect credit, route and market panes | done (debt #549, checkpoint #552, idle #553; #582: the connects with credit and debt and a buy on the book, the route pane, targets and driver, the market pane; #578: the pane's next product on the ladder, `ui/unlocks.go` `nextProductNote`) |
-| Money | Wash audit odds, throughput, pile rot, tax | done (#577: the ledger's audit, capacity and legit line, the pile's weight and rot, the tax a city at a time, a front's washes at the dial with the accountants' share and its audit; a front's washed today open #588) |
+| Money | Wash audit odds, throughput, pile rot, tax | done (#577: the ledger's audit, capacity and legit line, the pile's weight and rot, the tax a city at a time, a front's washes at the dial with the accountants' share and its audit; #588: a front's washed today and lifetime) |
 | Money | Presets and upgrades in readable names | done (#582) |
 | Money | Every figure as `internal/format` writes it: `-$N` for a negative, Go's ties to even | done (#589: one `src/format.js`) |
 | Endings | The score (÷ 1 + bodies) on every way out and the ending screen | done (#554) |
@@ -67,6 +67,16 @@ Not counted: the key hints and the frame (#109, #536), since the web is click-dr
 | Progression | Journal, profile history, rank, slots | n/a (ruled out of scope, 2026-10-01) |
 
 **The alert clauses the web leaves out** (`webLeavesOut`, held by `TestWebClient`). The TUI's own way in, kept out: `landed`'s `s sells it`, `exports`' `t on a lane`, `straight`'s and `vanish`'s `(walk away) or play on`, `talking`'s `Investigate`. The remedy, which the web lands on but does not say (ruled 2026-10-01: ported, #573): `pages` (fire whoever it names; nobody to fire; every tip can file a page), `war_muscle`, `skim`, `idle_corner`, `stash_full`, `scouts`, `house_known`, `wages` (cash out clean), `favour` (call it in), `unposted`, `no_corner`. Facts to port: `float` (the wash and the road wait), `till` (the wash takes the rest), `gate` (the peak line and what is to go), `exposure` (the loads and "before the wash"), `reign` ("2 crew", the web says "crews"), `favour` (the chief's name, "task force"), `no_corner` and `unposted` (the other city by name). The facts are #573 too. `retire` counts off the alert where the TUI counts off the world.
+
+# A front's washed today (#588, protocol 28 / view 23)
+
+The builder now accepts view 23: each of `fronts` adds `washed_today` (`Front.WashedToday`, what the front washed on the last day stepped) beside `washed`, its lifetime. It is state the world already kept; no sim changed, so no seed-pinned number moved. An owned front's card rows it as the TUI's front pane does (`ui/ledger.go` `frontSection`): `today $1,438 · lifetime $112,078`, between `washes` and `audit` (`src/wash.js` `frontRows`). The card's old `$N washed` line, the lifetime alone, is gone: the row carries it.
+
+Checks:
+
+- Go: `TestViewCarriesWhatAFrontWashedToday` holds the view's `washed_today` and `washed` to the front's; `view_shape.txt` and `schema.json` regenerated.
+- `smoke.mjs`: a front's rows read `washes`, then `["today", "$350 · lifetime $12,345"]`, then `audit`, through `format.js`.
+- The TUI and Chromium (Playwright headless, 1280×900 and 390×900) on one crafted save (the `boss` policy, seed 4, 120 days, six fronts): the TUI's ledger reads `Laundromat … $1,438 $112,078` in the FRONTS table and `today $1,438 · lifetime $…` in the pane; the web's Laundromat card reads `today $1,438 · lifetime $112,078`, the Nightclub's `today $21,563 · lifetime $766,128` and the Crypto Exchange's `today $179,688 · lifetime $2,884,378`, as the TUI's table; no page errors.
 
 # One way to write a number (#589, no version moved)
 

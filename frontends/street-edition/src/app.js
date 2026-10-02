@@ -420,7 +420,7 @@ function renderEmpire() {
     .map((f) => {
       const own = v.fronts.find((x) => x.id === f.ID),
         level = own ? query("rules.laundering.levels", own.id, 1) : null;
-      return `<article class="card" id="front-${esc(f.ID)}"><div class="card-top">${icon("shop")}<span class="tag ${own ? "" : "gold"}">${own ? "LEVEL " + own.level : "BUSINESS OPPORTUNITY"}</span></div><h3>${esc(f.Name)}</h3><p class="front-role">${esc(engineInfo.frontRoles[f.ID] || "")}</p><p>Base capacity ${money(f.Throughput)} / day<br>Base upkeep ${money(f.Upkeep)} clean / day<br>Base audit risk ${wash.offerAudit(f)} / day</p>${own ? `${frontStatusHTML(own)}${frontRowsHTML(own, f)}<span class="subtle-text">${money(own.washed)} washed</span><div class="card-actions">${btn(level.Levels > 0 ? "Invest " + money(level.Cost) : "Maximum level", "invest", own.id, "small", level.Levels === 0 || v.you.clean_cash < level.Cost || !!v.over)}</div>` : `${frontOfferHTML(f, p)}<div class="row"><strong class="price">${money(f.Cost)}</strong>${btn("Buy business", "buy-front", f.ID, "small", v.you.dirty_cash < f.Cost || !!wash.offerLock(v, f) || !!v.over)}</div>`}</article>`;
+      return `<article class="card" id="front-${esc(f.ID)}"><div class="card-top">${icon("shop")}<span class="tag ${own ? "" : "gold"}">${own ? "LEVEL " + own.level : "BUSINESS OPPORTUNITY"}</span></div><h3>${esc(f.Name)}</h3><p class="front-role">${esc(engineInfo.frontRoles[f.ID] || "")}</p><p>Base capacity ${money(f.Throughput)} / day<br>Base upkeep ${money(f.Upkeep)} clean / day<br>Base audit risk ${wash.offerAudit(f)} / day</p>${own ? `${frontStatusHTML(own)}${frontRowsHTML(own, f)}<div class="card-actions">${btn(level.Levels > 0 ? "Invest " + money(level.Cost) : "Maximum level", "invest", own.id, "small", level.Levels === 0 || v.you.clean_cash < level.Cost || !!v.over)}</div>` : `${frontOfferHTML(f, p)}<div class="row"><strong class="price">${money(f.Cost)}</strong>${btn("Buy business", "buy-front", f.ID, "small", v.you.dirty_cash < f.Cost || !!wash.offerLock(v, f) || !!v.over)}</div>`}</article>`;
     })
     .join(
       "",
@@ -449,7 +449,8 @@ function frontStatusHTML(f) {
   return `<p class="front-status ${tone(st.tone)}"><b>${esc(st.text)}</b>${covered ? `<br><small class="subtle-text">Upkeep covered ${plural(covered, "more night")}</small>` : ""}</p>`;
 }
 // frontRowsHTML is an owned front's wash (#577): its real throughput
-// at the dial and its audit odds.
+// at the dial, what it washed today and in its life (#588) and its
+// audit odds.
 function frontRowsHTML(f, o) {
   return `<p class="front-rows">${wash
     .frontRows(v, query, f, o)

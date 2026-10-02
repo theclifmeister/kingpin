@@ -126,7 +126,8 @@ export function taxLines(v, q) {
 
 // frontRows are an owned front's wash, as the TUI's front pane rows
 // them (#577): what it washes a day at the dial with the accountants'
-// share, and its audit odds at the dial. o is its offer
+// share, what it washed today and in its life (#588, view 23), and its
+// audit odds at the dial. o is its offer
 // (rules.laundering.offers), for the base the accountants add to.
 // [[label, text]].
 export function frontRows(v, q, f, o) {
@@ -138,6 +139,7 @@ export function frontRows(v, q, f, o) {
   }
   return [
     ["washes", washes],
+    ["today", `${money(f.washed_today)} · lifetime ${money(f.washed)}`],
     ["audit", `${pctText(q("rules.laundering.audit_risk", f.id) * 100)}/day at ${dial}`],
   ];
 }

@@ -433,12 +433,13 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   // A front's throughput and audit at the dial; an accountant's share
   // is what the throughput is over the base at the dial.
   const o = q("rules.laundering.offers")[0],
-    f = { id: o.ID, bought: 0 },
+    f = { id: o.ID, bought: 0, washed: 12345, washed_today: 350 },
     tp = q("rules.laundering.throughput", o.ID),
     mul = q("rules.laundering.dial", v.you.launder).Mul;
   const rows = wash.frontRows({ ...v, crew: [] }, q, f, o);
   assert.deepEqual(rows[0], ["washes", `$${tp.toLocaleString("en-US")}/day`]);
-  assert.match(rows[1][1], new RegExp(`^\\d+(\\.\\d)?%/day at ${v.you.launder}$`));
+  assert.deepEqual(rows[1], ["today", "$350 · lifetime $12,345"], "a front's washed today and lifetime, as the TUI's front pane rows them");
+  assert.match(rows[2][1], new RegExp(`^\\d+(\\.\\d)?%/day at ${v.you.launder}$`));
   const withAcct = wash.frontRows({ ...v, crew: [{ role: "accountant" }] }, q, f, o)[0][1];
   assert.equal(withAcct, `$${tp.toLocaleString("en-US")}/day (+$${(tp - Math.round(o.Throughput * mul)).toLocaleString("en-US")} accountants)`);
   assert.doesNotMatch(wash.frontRows({ ...v, crew: [{ role: "accountant", jailed: true }] }, q, f, o)[0][1], /accountants/, "a jailed accountant is not at work");
@@ -1176,6 +1177,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, one way to write a number, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a front's washed today, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, one way to write a number, and save round-trip.`,
 );
 process.exit(0);
