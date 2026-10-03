@@ -19,6 +19,10 @@ void go.run(instance);
 const { Session } = await import(pathToFileURL(path.join(dist, "session.js")));
 const session = new Session(globalThis.kingpin);
 session.newRun(41);
+// A list with nothing in it is [] on the wire, never null: with every
+// asset owned, Properties & assets filtered a null asset_offers and
+// crashed. Day 0 raises no alert, so alerts is an empty list.
+assert.deepEqual(session.call("alerts"), [], "an empty list is []");
 const before = JSON.stringify(session.refresh());
 assert.ok(session.preview());
 for (const preset of session.presets()) session.presetDiff(preset.id);

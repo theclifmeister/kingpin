@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/engine"
@@ -239,7 +240,7 @@ func (s *Server) handle(line []byte) (resp Response) {
 		resp.Error = e
 		return resp
 	}
-	raw, err := json.Marshal(result)
+	raw, err := json.Marshal(emptyNotNull(result))
 	if err != nil {
 		resp.Error = &Error{Code: CodeInternal, Message: "the result does not encode: " + err.Error()}
 		return resp
@@ -280,4 +281,15 @@ func mustMarshal(v any) []byte {
 		raw, _ = json.Marshal(Response{JSONRPC: "2.0", ID: json.RawMessage("null"), Error: &Error{Code: CodeInternal, Message: "does not encode: " + err.Error()}})
 	}
 	return raw
+}
+
+// emptyNotNull is a method's result as it goes on the wire: a nil
+// slice is an empty one, so a list with nothing left in it (every
+// asset owned, every front bought) is [] as the schema says, never
+// null.
+func emptyNotNull(result any) any {
+	if v := reflect.ValueOf(result); v.Kind() == reflect.Slice && v.IsNil() {
+		return reflect.MakeSlice(v.Type(), 0, 0).Interface()
+	}
+	return result
 }

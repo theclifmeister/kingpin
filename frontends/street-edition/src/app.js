@@ -711,18 +711,19 @@ function routeIdleHTML(r) {
   return idle ? `<p class="${tone(idle.tone)}">${esc(idle.text)}</p>` : "";
 }
 function properties() {
-  const houses = query("house_offers"),
-    assets = query("asset_offers");
+  const houses = query("house_offers") || [],
+    assets = query("asset_offers") || [],
+    owned = v.houses || [];
   modal(
     `<div class="eyebrow">PROPERTY LEDGER</div><h2>A place of your own.</h2>${ownedHousesHTML()}${ownedAssetsHTML()}<h3>Houses</h3>${houses
       .map(
         (h) =>
           `<div class="report-section"><b>${esc(h.Name)}</b><p>${esc(h.City)} · ${h.Capacity} capacity · ${money(h.Price)} upfront</p>${btn(
-            v.houses.some((x) => x.id === h.ID) ? "Owned" : "Lease",
+            owned.some((x) => x.id === h.ID) ? "Owned" : "Lease",
             "house",
             h.ID,
             "small",
-            v.houses.some((x) => x.id === h.ID),
+            owned.some((x) => x.id === h.ID),
           )}</div>`,
       )
       .join(
