@@ -1173,10 +1173,71 @@ if (!session.view.over) {
   assert.equal(line("betrayed"), `a lieutenant turns on ${Math.round(engineInfo.glossary.betrayShare * 100)}% of your corners, ${engineInfo.glossary.betrayCorners}+: that night`);
   assert.equal(line("street night"), `a night's dealing; going straight: fronts over its last ${engineInfo.streetWindow}`);
 }
+// Fast-forward (#555): the cap the dialog reads, a run fast-forwarded
+// to its stops and each worded by the stop rule's kind, the hold that
+// refuses the start in the alert's own words, and a danger's numbers.
+{
+  const fast = await import(pathToFileURL(path.join(dist, "fast.js")));
+  const { alertText } = await import(pathToFileURL(path.join(dist, "alerts.js")));
+  assert.deepEqual(fast.cap(""), { days: 7 }, "blank is the default cap");
+  assert.deepEqual(fast.cap(" 12 "), { days: 12 });
+  assert.deepEqual(fast.cap("30"), { days: 30 });
+  assert.deepEqual(fast.cap("31"), { error: "up to 30 days at a time" });
+  for (const bad of ["0", "-2", "1.5", "x"]) assert.deepEqual(fast.cap(bad), { error: "enter a whole number above zero" }, bad);
+  assert.equal(fast.ask(1), "Run up to 1 day, stopping when something needs you.");
+  assert.equal(fast.fileClose(3, 6), "file 3/6: 3 pages from an indictment");
+  assert.equal(fast.fileClose(5, 6), "file 5/6: one more page is an indictment");
+  // Seed 11 left alone: it stops for buyers, rivals and cards, every
+  // stop worded as the TUI words it, until the run is broke tonight and
+  // the hold refuses the start.
+  const s = new Session(globalThis.kingpin);
+  s.newRun(11);
+  assert.equal(s.call("holds"), null, "a fresh run holds nothing");
+  const kinds = new Set();
+  let first = null;
+  for (let i = 0; i < 40 && !s.call("holds") && !s.view.over; i++) {
+    const before = s.refresh().day,
+      r = s.fastForward(30),
+      v = s.refresh();
+    s.take();
+    assert.equal(r.day, v.day);
+    assert.equal(r.day - before, r.ran, "the days run");
+    assert.ok(r.ran >= 1 && r.ran <= 30);
+    assert.equal(!!r.payload, r.stop === "event", "an event stop carries its event");
+    const st = fast.stop(v, r);
+    assert.match(st.text, new RegExp(`^Stopped after ${r.ran} days?${r.danger ? " on a danger" : ""}: .+\\.$`), st.text);
+    assert.equal(st.tone, r.danger ? "danger" : "warn");
+    if (r.stop === "event") {
+      assert.notEqual(fast.eventWhy(v, r.event, r.payload), r.event, "the event has words: " + r.event);
+      kinds.add(r.event);
+    }
+    if (r.stop === "alert") assert.ok(st.text.includes(alertText(v, r.alert).replace(/[.\s]+$/, "")), "an alert stop is the alert's words");
+    first ??= st.text;
+    while (s.refresh().card) s.choose(0);
+    if (s.refresh().stage?.pending) s.call("see_stage", s.refresh().stage.pending);
+  }
+  assert.equal(first, "Stopped after 6 days: Marco at the Velvet Room is asking.", "the first stop, a buyer");
+  assert.ok(kinds.has("RivalMovedIn") && kinds.has("ContractOffered"), "the run stops on events");
+  const v = s.refresh(),
+    hold = s.call("holds");
+  assert.equal(hold?.kind, "broke", "the idle run is broke tonight");
+  assert.equal(fast.held(v, hold), `Fast-forward will not run tonight: ${alertText(v, hold).replace(/[.\s]+$/, "")}. Deal with it, or end the day by hand.`);
+  const held = s.fastForward(7);
+  assert.equal(held.ran, 0, "the hold runs no night");
+  assert.equal(held.day, v.day);
+  assert.equal(fast.stop(v, held), null, "a run of no days has no stop line");
+  assert.equal(fast.held(v, null), "");
+  // A danger stop on an event carries the file (#504).
+  const d = fast.stop(v, { ran: 3, stop: "event", event: "TaskForceFormed", payload: { City: v.you.city }, danger: true });
+  assert.equal(d.text, `Stopped after 3 days on a danger: a task force formed in ${v.cities.find((c) => c.id === v.you.city).name}, ${fast.fileClose(v.you.evidence, v.law.arrest_line)}.`);
+  assert.equal(d.tone, "danger");
+  assert.equal(fast.stop(v, { ran: 2, stop: "cap" }).text, "Stopped after 2 days: the cap.");
+  assert.equal(fast.stop(v, { ran: 2, stop: "over" }), null, "the ending says it");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a front's washed today, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, one way to write a number, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers and last words, where every alert lands, the till, the wash and the road, the wash's audit odds, throughput, rot and tax, a front's washed today, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, the routine and the cart, the sweep and the houses, the connects, the market pane, the routes and the cart's buys, the dashboard's facts, the report lines' pointers, the stage and the next product, the sale's heat, pressure in numbers and the glossary, one way to write a number, fast-forward to a stop and its hold, and save round-trip.`,
 );
 process.exit(0);

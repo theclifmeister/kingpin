@@ -1595,3 +1595,44 @@ button.alert-item.notice {
   margin: 0;
   color: var(--muted);
 }
+/* Fast-forward (#555): the button under the end of the day, and the
+   line that says why the days stopped, amber, or red for a danger. */
+.day-actions #fast {
+  margin: 0;
+  min-height: 32px;
+  padding: 6px 12px;
+}
+.fast-stop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 10px 13px;
+  border-left: 4px solid var(--gold);
+  background: #f1e4bd;
+  color: #9a6a12;
+  font-size: 13px;
+}
+.fast-stop[hidden] {
+  display: none;
+}
+.fast-stop p {
+  flex: 1;
+  margin: 0;
+}
+.fast-stop.danger {
+  border-left-color: var(--coral);
+  background: #f2dccd;
+  color: var(--coral);
+  font-weight: 700;
+}
+.fast-stop .button {
+  margin: 0;
+}
+.fast-stop .dismiss {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
