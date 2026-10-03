@@ -497,3 +497,33 @@ func TestPreviewOverTheWire(t *testing.T) {
 		t.Errorf("the preview of a night selling 10: %+v", p)
 	}
 }
+
+// A list with nothing left in it is [] on the wire, never null: with
+// every asset owned asset_offers is empty, and Street Edition's
+// Properties & assets filtered it and crashed on null.
+func TestEmptyListIsNotNull(t *testing.T) {
+	t.Parallel()
+	c, srv := loopClient(t)
+	if err := c.Call("new_run", []any{7, "", false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w := srv.sess.World()
+	w.Player.CleanCash = 1_000_000_000
+	w.Stats.PeakClean = w.Player.CleanCash
+	var offers []game.AssetOffer
+	if err := c.Call("asset_offers", nil, &offers); err != nil || len(offers) == 0 {
+		t.Fatalf("asset_offers on a fresh run: %v %v", offers, err)
+	}
+	for _, o := range offers {
+		if err := c.Call("buy_asset", []any{o.ID}, nil); err != nil {
+			t.Fatalf("buy_asset %s: %v", o.ID, err)
+		}
+	}
+	lines := srv.Handle([]byte(`{"jsonrpc":"2.0","id":1,"method":"asset_offers"}`))
+	if len(lines) != 1 || !bytes.Contains(lines[0], []byte(`"result":[]`)) {
+		t.Fatalf("asset_offers with every asset owned: %s", bytes.Join(lines, []byte("\n")))
+	}
+	if got := emptyNotNull([]game.AssetOffer(nil)); got == nil || reflect.ValueOf(got).IsNil() {
+		t.Error("emptyNotNull left a nil slice nil")
+	}
+}
