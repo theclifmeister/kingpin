@@ -44,8 +44,9 @@ import (
 // crew tab reads: a member's kin, the day the pool last turned over,
 // your carry and what each city holds. 22 (#560) where a report line
 // points: a section's points and a lead line's at, so the words name no
-// screen and each front end words its own pointer.
-const ViewVersion = 22
+// screen and each front end words its own pointer. 23 (#588) what a
+// front washed today, beside its lifetime washed.
+const ViewVersion = 23
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -563,6 +564,9 @@ type FrontView struct {
 	FrozenUntil int    `json:"frozen_until,omitempty"` // the day it opens again while Frozen
 	Unpaid      int    `json:"unpaid,omitempty"`       // the upkeep the clean pile was short the night it shut (#458); 0 an audit's shut
 	Audited     int    `json:"audited,omitempty"`      // the day of the last audit
+
+	// View 23 (#588): what it washed on the last day stepped.
+	WashedToday int `json:"washed_today"`
 }
 
 // LaneView is an export lane (#391) as the ledger shows it (#405): open
@@ -1048,7 +1052,7 @@ func (s *Session) View() View {
 	}
 	for _, f := range w.Fronts {
 		fv := FrontView{ID: f.ID, Name: f.Name, Level: f.Level, Frozen: f.Frozen(w.Day), Washed: f.Washed,
-			City: w.FrontCity(f), Bought: f.Bought, Unpaid: f.Unpaid, Audited: f.Audited}
+			City: w.FrontCity(f), Bought: f.Bought, Unpaid: f.Unpaid, Audited: f.Audited, WashedToday: f.WashedToday}
 		if fv.Frozen {
 			fv.FrozenUntil = f.FrozenUntil
 		}

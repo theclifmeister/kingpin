@@ -3055,6 +3055,9 @@
         },
         "washed": {
           "type": "integer"
+        },
+        "washed_today": {
+          "type": "integer"
         }
       },
       "required": [
@@ -3063,7 +3066,8 @@
         "level",
         "washed",
         "city",
-        "bought"
+        "bought",
+        "washed_today"
       ],
       "type": "object"
     },
@@ -17221,5 +17225,5 @@
   },
   "protocol": 28,
   "title": "kingpind",
-  "view_version": 22
+  "view_version": 23
 }
